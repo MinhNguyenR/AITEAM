@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aiteam"
+version = "6.2"
+description = "AI Team Blueprint - Multi-Agent System CLI"
+authors = [
+    {name = "Nguyễn Đặng Tường Minh"}
+]
+requires-python = ">=3.10"
+dependencies = [
+    "rich",
+    "openai",
+    "python-dotenv",
+    "pydantic",
+    "click",
+    "prompt_toolkit",
+    "langgraph",
+    "langgraph-checkpoint-sqlite",
+    "textual",
+    "cryptography>=42.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "fpdf2>=2.7.0",
+]
+
+[project.scripts]
+aiteam = "core.cli.app:main_loop"
+agent-audit = "agent_audit_standalone.cli:main"
+
+[tool.setuptools]
+py-modules = ["aiteam_bootstrap"]
+
+[tool.setuptools.packages.find]
+include = ["*"]
+exclude = ["build*", "dist*", "*.egg-info*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"
