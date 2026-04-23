@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import sqlite3
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from utils.file_manager import ensure_ask_data_dir
 
@@ -66,7 +70,7 @@ class AskChatSQLiteAPI:
         return conn
 
     def _init_db(self) -> None:
-        with self._connect() as conn:
+        with self._connect():
             pass
 
     def list_conversations(self) -> List[Dict[str, Any]]:
@@ -182,6 +186,13 @@ class AskChatSQLiteAPI:
             conn.commit()
             return True
 
+    def delete_all_conversations(self) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM ask_messages")
+            conn.execute("DELETE FROM ask_conversations")
+            conn.execute("DELETE FROM ask_state WHERE key = 'active_conversation'")
+            conn.commit()
+
     def set_mode(self, name: str, mode: str) -> bool:
         now = datetime.now().isoformat()
         with self._connect() as conn:
@@ -241,17 +252,27 @@ class AskChatSQLiteAPI:
             if not backup.exists():
                 backup.write_text(json_path.read_text(encoding="utf-8"), encoding="utf-8")
             return True
-        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError) as e:
+            logger.error("[AskChatStore] migrate_legacy_json IO/parse error: %s", e)
+            return False
+        except (TypeError, ValueError) as e:
+            logger.warning("[AskChatStore] migrate_legacy_json data shape error: %s", e)
             return False
 
 
-_ask_chat_store: Optional[AskChatSQLiteAPI] = None
+_store_cache: Dict[str, "AskChatSQLiteAPI"] = {}
+_store_lock = threading.Lock()
 
 
-def get_ask_chat_store(data_dir: Optional[Path] = None) -> AskChatSQLiteAPI:
-    global _ask_chat_store
-    if data_dir is not None:
-        return AskChatSQLiteAPI(data_dir=data_dir)
-    if _ask_chat_store is None:
-        _ask_chat_store = AskChatSQLiteAPI()
-    return _ask_chat_store
+def get_ask_chat_store(data_dir: Optional[Path] = None) -> "AskChatSQLiteAPI":
+    resolved = str((data_dir or ensure_ask_data_dir()).resolve())
+    with _store_lock:
+        if resolved not in _store_cache:
+            _store_cache[resolved] = AskChatSQLiteAPI(data_dir=Path(resolved))
+        return _store_cache[resolved]
+
+
+def clear_ask_chat_store_cache() -> None:
+    """Clear the store cache — for use in tests only."""
+    with _store_lock:
+        _store_cache.clear()

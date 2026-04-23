@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiteam"
-version = "6.2"
+version = "0"
 description = "AI Team Blueprint - Multi-Agent System CLI"
 authors = [
     {name = "Nguyễn Đặng Tường Minh"}
@@ -18,29 +18,69 @@ dependencies = [
     "click",
     "prompt_toolkit",
     "langgraph",
+    "langchain-core>=1.2.28",
+    "langsmith>=0.7.31",
     "langgraph-checkpoint-sqlite",
     "textual",
     "cryptography>=42.0.0",
+    "openpyxl>=3.1.0",
+    "fpdf2>=2.7.0",
+    "fonttools>=4.60.2",
+    "pillow>=12.2.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
-    "fpdf2>=2.7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.8.0",
+    "pip-audit>=2.7",
+    "bandit[toml]>=1.7",
+    "mypy>=1.8",
 ]
 
 [project.scripts]
 aiteam = "core.cli.app:main_loop"
-agent-audit = "agent_audit_standalone.cli:main"
-
-[tool.setuptools]
-py-modules = ["aiteam_bootstrap"]
 
 [tool.setuptools.packages.find]
-include = ["*"]
-exclude = ["build*", "dist*", "*.egg-info*"]
+where = ["."]
+include = ["core*", "agents*", "utils*"]
+exclude = ["tests*", "build*", "dist*", "*.egg-info*"]
+
+[tool.ruff.lint]
+ignore = ["E402"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-q"
+addopts = "-q --cov=core --cov=agents --cov=utils --cov-report=term-missing"
+
+[tool.coverage.run]
+omit = [
+    "core/cli/workflow/tui/*",
+    "core/cli/chrome/*",
+    "core/cli/monitor_queue_drain.py",
+    "core/cli/choice_lists.py",
+    "scripts/*",
+]
+
+[tool.coverage.report]
+omit = [
+    "core/cli/workflow/tui/*",
+    "core/cli/chrome/*",
+    "core/cli/monitor_queue_drain.py",
+    "core/cli/choice_lists.py",
+    "scripts/*",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+# B101: assert statements used in non-test helpers (intentional guard clauses)
+# B310: urllib.request.urlopen called only on the fixed host openrouter.ai
+#       (see core/config/pricing.py — URL is hardcoded, not user-supplied)
+skips = ["B101", "B310"]
+
+[tool.mypy]
+python_version = "3.10"
+explicit_package_bases = true
+ignore_missing_imports = true

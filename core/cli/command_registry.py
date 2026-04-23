@@ -1,13 +1,12 @@
 # Central registry for CLI command keys and copy.
-# Global commands (documented here; wire in each screen's Prompt.choices as needed):
-#   shutdown — thoát hẳn ứng dụng CLI (sys.exit).
-#   exit — quay về menu chính.
-#   back — thoát màn con, lùi một cấp (ở menu gốc: no-op / thông báo dim).
+# Global commands:
+#   shutdown — exit the application (sys.exit)
+#   exit     — return to main menu
+#   back     — go up one level (no-op at root)
 
 from __future__ import annotations
 
-# --- Main menu (palette + main_loop) ---
-# 0 = shutdown, 1 = start, 2 = check, 3 = status, 4 = info, 5 = dashboard, 6 = settings, 7 = help, 8 = workflow
+# ── Main menu ─────────────────────────────────────────────────────────────────
 MAIN_MENU_BY_NUMBER: dict[str, str] = {
     "0": "shutdown",
     "1": "start",
@@ -20,134 +19,130 @@ MAIN_MENU_BY_NUMBER: dict[str, str] = {
     "8": "workflow",
 }
 
-# Aliases accepted by Prompt.ask (same actions as numbers above)
 MAIN_MENU_ALIASES: tuple[str, ...] = tuple(MAIN_MENU_BY_NUMBER.values()) + ("exit",)
+MAIN_MENU_VALID_CHOICES: tuple[str, ...] = (
+    tuple(MAIN_MENU_BY_NUMBER.keys()) + MAIN_MENU_ALIASES + ("back",)
+)
 
-# Full choice list for main loop (numbers + names + global back)
-MAIN_MENU_VALID_CHOICES: tuple[str, ...] = tuple(MAIN_MENU_BY_NUMBER.keys()) + MAIN_MENU_ALIASES + ("back",)
+MAIN_PROMPT_LABEL = ">"
 
-MAIN_PROMPT_LABEL = "Chọn lệnh"
+# start → mode select
+START_MODE_BY_NUMBER: dict[str, str] = {
+    "1": "ask",
+    "2": "agent",
+    "3": "back",
+    "4": "exit",
+}
 
-# Rows for Rich table in palette: (key_display, cmd_name, short_description)
+# ── Palette rows: (key_display, cmd_name, description) ───────────────────────
 MENU_PALETTE_ROWS: tuple[tuple[str, str, str], ...] = (
-    ("[1]", "start", "Chọn mode (ask/agent) rồi nhập task"),
-    ("[2]", "check", "Xem và xác nhận context.md"),
-    ("[3]", "status", "Trạng thái hệ thống (GPU, RAM, API)"),
-    ("[4]", "info", "Registry models + usage; đổi model & prompt"),
-    ("[5]", "dashboard", "Wallet, budget, usage today/session; history tóm tắt; s/m"),
-    ("[6]", "settings", "Auto-accept, workflow view, help terminal mới"),
-    ("[7]", "help", "Hướng dẫn (trong app hoặc terminal mới theo setting)"),
-    ("[8]", "workflow", "Monitor LangGraph (Textual)"),
-    ("[0]", "shutdown", "Thoát"),
+    ("[1]", "start",     "Select mode (ask / agent) then enter a task"),
+    ("[2]", "check",     "Review and confirm context.md"),
+    ("[3]", "status",    "System info: GPU, RAM, API connection"),
+    ("[4]", "info",      "Agent registry — models, roles, overrides"),
+    ("[5]", "dashboard", "Usage, budget, spending history"),
+    ("[6]", "settings",  "View mode, auto-accept, context action"),
+    ("[7]", "help",      "Reference guide"),
+    ("[8]", "workflow",  "Open workflow monitor (Textual TUI)"),
+    ("[0]", "shutdown",  "Exit"),
 )
 
 
 def menu_commands() -> list[tuple[str, str, str]]:
-    """Descriptions for command palette table."""
     return list(MENU_PALETTE_ROWS)
 
 
+# ── Help markdown ─────────────────────────────────────────────────────────────
 HELP_SCREEN_MARKDOWN = """
-# AI Team Blueprint — Hướng dẫn CLI
+# AI-team — CLI Reference
 
-## Lệnh global
+## Global commands
 
-- **`exit`** — Thoát hẳn ứng dụng (`sys.exit`). Dùng được ở menu chính (số **0** hoặc gõ `exit`) và ở một số màn (ví dụ **check** viewer, **status** sau khi xem).
-- **`back`** — Lùi một cấp / đóng màn con. Ở menu gốc: thông báo dim (không có cấp trên).
-
----
-
-## Menu chính (palette + `Chọn lệnh`)
-
-| Số / tên | Lệnh | Mô tả ngắn |
-|----------|------|------------|
-| **1** `start` | start | Chọn **ask** / **agent** / **back** / **exit** trước, sau đó nhập task |
-| **2** `check` | check | Viewer `context.md` (back, edit, delete, run, regenerate, exit) |
-| **3** `status` | status | GPU, API key (mask), đường dẫn; sau đó **back** / **exit** |
-| **4** `info` | info | Registry models; số role → chi tiết / **change** (model, prompt) |
-| **5** `dashboard` | dashboard | Wallet, usage today, budget, usage session; history tóm tắt; **s** mở history đầy đủ |
-| **6** `settings` | settings | Auto-accept, workflow view, help external |
-| **7** `help` | help | Markdown này (hoặc cửa sổ terminal mới nếu bật help external) |
-| **8** `workflow` | workflow | Monitor Textual / list view tùy cấu hình |
-| **0** `exit` | exit | Thoát app |
+| Command    | Effect |
+|------------|--------|
+| `exit`     | Return to main menu (or quit if at root) |
+| `back`     | Go up one level |
+| `shutdown` | Exit the application (`sys.exit`) — also **0** from main menu |
 
 ---
 
-## `start` (mode trước, task sau)
+## Main menu
 
-- **`ask`** — Ask: chọn hội thoại trước khi gửi task; code + ask chỉ giải thích (cảnh báo trong CLI).
-- **`agent`** — Pipeline agent (Ambassador → graph…). Nếu task giống **câu hỏi** (không phải code), CLI chuyển sang **ask** chat mới, không chạy graph.
-- **`back`** — Về menu chính (chọn mode). **`exit`** (chọn mode) — Cũng về menu (huỷ start). Gõ **`exit`** tại prompt nhập task — thoát app.
-
-Mỗi lần đã chọn mode (và có task) = một **đợt** trong **dashboard** (khi có append batch).
-
----
-
-## `check` (context.md viewer)
-
-- **`back`** — Thoát viewer (nếu đang pause gate: giữ pause, không resume).
-- **`edit`** — Mở file trong `EDITOR`.
-- **`delete`** — Xóa context + dọn state liên quan.
-- **`run`** — Chấp nhận context và tiếp tục / resume workflow nếu đang pause.
-- **`regenerate`** — Xóa context, nhập task mới để tạo lại.
-- **`exit`** — Thoát app.
-
-Màn **CONTEXT.MD REVIEW** (human gate) dùng phím **A/E/R/B/D** (accept / edit / regenerate / back / delete).
+| Key / name     | Action |
+|----------------|--------|
+| **1** `start`  | Choose **ask** or **agent** mode, then enter a task |
+| **2** `check`  | View / accept / delete `context.md` |
+| **3** `status` | Hardware, API key, paths |
+| **4** `info`   | Agent registry — inspect / override models and prompts |
+| **5** `dashboard` | Wallet balance, token usage, budget, batch history |
+| **6** `settings`  | Toggle auto-accept, workflow view, context action |
+| **7** `help`   | This screen |
+| **8** `workflow` | Textual TUI workflow monitor |
+| **0** `shutdown` | Exit |
 
 ---
 
-## `status`
+## start
 
-Tải nhanh: bảng Hardware, API, Status & Paths. Cuối màn: **`back`** | **`exit`**.
-
----
-
-## `info`
-
-- Bảng tất cả role: sau đó nhập **số** hoặc **`back`** để về.
-- Trong **chi tiết role** (`change`): lệnh dạng text — `change to <model_id>`, `change prompt`, `change reset`, `back` / `exit`.
+- **ask** — conversational mode; code-related queries show a disclaimer.
+- **agent** — runs the full Ambassador → pipeline. Question-like prompts auto-route to ask.
+- **back** — cancel and return to menu.
 
 ---
 
-## `dashboard`
+## check (context.md viewer)
 
-**Màn chính**
-
-- Wallet, usage hôm nay, **BUDGET** (**`b`** chỉnh), **usage session**.
-- **History tóm tắt** (đợt gần nhất); **`s`** — bảng đợt đầy đủ (phân trang, pdf, chi tiết đợt, range…); **`d`** — chi tiết một đợt theo số.
-
-**Submenu `s` (history & công cụ)**
-
-- **0** / **back** về dashboard; **exit** thoát app.
-- **1** `range`, **2** `pdf`, **`n`/`p`** trang đợt.
-
----
-
-## `settings`
-
-- **0** — Về menu chính.
-- **1** — Toggle auto-accept `context.md`.
-- **2** — Workflow view: chain / list.
-- **3** — Help: mở **cửa sổ terminal mới** (cùng shell) chạy help khi chọn menu help (toggle).
+| Command      | Effect |
+|--------------|--------|
+| `back`       | Close viewer (keeps pause gate if active) |
+| `edit`       | Open file in `$EDITOR` |
+| `delete`     | Delete context + clean state |
+| `run`        | Accept context and resume pipeline |
+| `regenerate` | Delete context and prompt for a new task |
+| `exit`       | Return to main menu |
 
 ---
 
-## `workflow`
+## workflow monitor commands
 
-Theo entrypoint: Textual monitor hoặc **list view** — gõ lệnh theo màn hình (`exit`, `back`, `rewind`, …). Khi agent chạy từ **start**, tiến độ pipeline cập nhật bằng **Rich Live** trong terminal hiện tại (không mở console mới).
+| Command         | Effect |
+|-----------------|--------|
+| `log`           | Open activity log |
+| `btw [msg]`     | Print snapshot; if msg provided → CompactWorker synthesis |
+| `task <text>`   | Queue a new task (only when pipeline is idle) |
+| `model <id>`    | Search checkpoints by model or node |
+| `check`         | Open context review screen |
+| `delete`        | Delete context and exit monitor |
+| `dismiss <id>`  | Dismiss a notification |
+| `exit / q`      | Quit monitor |
 
 ---
 
-## `ask` (Ask mode)
+## dashboard
 
-Trong phiên Ask: **`YOU>`** — `ask thinking` / `ask standard`; **`back`** thoát Ask; **`exit`** thoát app. Khi chọn chat: `ask create` / rename / delete; không còn `ask show` / `ask exit`.
+- **history** — usage by day/range
+- **total**   — aggregate by model / role
+- **budget**  — set daily / monthly / yearly limits
+- `back` / `0` — return · `exit` — main menu
 
 ---
 
-## Công cụ / dữ liệu
+## settings
 
-- Log usage local: `~/.ai-team/usage_log.jsonl`.
-- Đợt CLI (dashboard / PDF): `~/.ai-team/cli_batches.jsonl`.
+| # | Setting | Values |
+|---|---------|--------|
+| 1 | Auto-accept context.md | on / off |
+| 2 | Workflow view | chain / list |
+| 3 | Context action (post-delete) | ask · accept · decline |
+| 4 | Help: external terminal | on / off |
+
+---
+
+## ask (chat mode)
+
+- `ask thinking` / `ask standard` — switch model tier mid-chat
+- `back` — exit chat
+- `exit` — return to main menu
 """.strip()
 
 
@@ -156,6 +151,7 @@ __all__ = [
     "MAIN_MENU_ALIASES",
     "MAIN_MENU_VALID_CHOICES",
     "MAIN_PROMPT_LABEL",
+    "START_MODE_BY_NUMBER",
     "menu_commands",
     "HELP_SCREEN_MARKDOWN",
 ]

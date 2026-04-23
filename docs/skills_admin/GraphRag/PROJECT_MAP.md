@@ -1,0 +1,231 @@
+# Project Map
+
+## Repository Tree
+- ai-team
+- ├── .graphrag/
+- │   └── graphrag.sqlite
+- ├── agents/
+- │   ├── teamMap/
+- │   │   ├── __init__.py
+- │   │   └── _team_map.py
+- │   ├── __init__.py
+- │   ├── ambassador.py
+- │   ├── base_agent.py
+- │   ├── browser.py
+- │   ├── commander.py
+- │   ├── expert.py
+- │   ├── final_reviewer.py
+- │   ├── fix_worker.py
+- │   ├── leader.py
+- │   ├── researcher.py
+- │   ├── reviewer.py
+- │   ├── secretary.py
+- │   ├── test_agent.py
+- │   ├── tool_curator.py
+- │   └── worker.py
+- ├── aiteam.egg-info/
+- │   ├── dependency_links.txt
+- │   ├── entry_points.txt
+- │   ├── PKG-INFO
+- │   ├── requires.txt
+- │   ├── SOURCES.txt
+- │   └── top_level.txt
+- ├── core/
+- │   ├── cli/
+- │   │   ├── workflow/
+- │   │   │   ├── __init__.py
+- │   │   │   ├── activity_log.py
+- │   │   │   ├── checkpointer.py
+- │   │   │   ├── display_policy.py
+- │   │   │   ├── list_view.py
+- │   │   │   ├── monitor.py
+- │   │   │   ├── runner.py
+- │   │   │   └── session.py
+- │   │   ├── __init__.py
+- │   │   ├── app.py
+- │   │   ├── ask_flow.py
+- │   │   ├── change_flow.py
+- │   │   ├── choice_lists.py
+- │   │   ├── cli_prompt.py
+- │   │   ├── command_registry.py
+- │   │   ├── context_flow.py
+- │   │   ├── dashboard_flow.py
+- │   │   ├── help_terminal.py
+- │   │   ├── helpbox.py
+- │   │   ├── palette.py
+- │   │   ├── settings_flow.py
+- │   │   ├── start_flow.py
+- │   │   ├── state.py
+- │   │   └── ui.py
+- │   ├── config/
+- │   │   ├── __init__.py
+- │   │   ├── constants.py
+- │   │   ├── hardware.py
+- │   │   ├── pricing.py
+- │   │   ├── registry.py
+- │   │   ├── service.py
+- │   │   └── settings.py
+- │   ├── dashboard/
+- │   │   ├── __init__.py
+- │   │   ├── app.py
+- │   │   ├── render.py
+- │   │   ├── state.py
+- │   │   └── utils.py
+- │   ├── storage/
+- │   │   ├── __init__.py
+- │   │   ├── ask_chat_store.py
+- │   │   ├── graphrag_store.py
+- │   │   └── knowledge_store.py
+- │   ├── __init__.py
+- │   ├── orchestrator.py
+- │   ├── pipeline_state.py
+- │   ├── prompts.py
+- │   ├── routing_map.py
+- │   └── skills/
+- ├── graphrag_standalone/
+- │   ├── __init__.py
+- │   ├── __main__.py
+- │   ├── cli.py
+- │   ├── indexer.py
+- │   ├── PROJECT_MAP.md
+- │   └── README.md
+- ├── tests/
+- │   ├── conftest.py
+- │   ├── test_dashboard_batches_browser.py
+- │   ├── test_dashboard_helpers.py
+- │   ├── test_dashboard_history_browser.py
+- │   ├── test_dashboard_pdf.py
+- │   ├── test_dashboard_pdf_font_fallback.py
+- │   ├── test_dashboard_range_picker.py
+- │   ├── test_dashboard_render.py
+- │   ├── test_dashboard_turn_views.py
+- │   ├── test_security_and_config.py
+- │   └── test_tracker_dashboard_summary.py
+- ├── utils/
+- │   ├── __init__.py
+- │   ├── activity_badges.py
+- │   ├── ask_history.py
+- │   ├── budget_guard.py
+- │   ├── delta_brief.py
+- │   ├── env_guard.py
+- │   ├── file_manager.py
+- │   ├── free_model_finder.py
+- │   ├── logger.py
+- │   └── tracker.py
+- ├── __init__.py
+- ├── cli.py
+- ├── LICENSE
+- ├── docs/notes/memory.md
+- ├── PROJECT_MAP.md
+- ├── pyproject.toml
+- ├── README.md
+- ├── test_leader_flow.py
+- └── times.ttf
+
+## Layers
+### core
+Application orchestration, CLI, configuration, dashboard, and storage
+- `core.__init__` → `core\__init__.py`
+- `core.cli.__init__` → `core\cli\__init__.py`
+- `core.cli.app` → `core\cli\app.py`
+- `core.cli.ask_flow` → `core\cli\ask_flow.py`
+- `core.cli.change_flow` → `core\cli\change_flow.py`
+- `core.cli.choice_lists` → `core\cli\choice_lists.py`
+- `core.cli.cli_prompt` → `core\cli\cli_prompt.py`
+- `core.cli.command_registry` → `core\cli\command_registry.py`
+- `core.cli.context_flow` → `core\cli\context_flow.py`
+- `core.cli.dashboard_flow` → `core\cli\dashboard_flow.py`
+- `core.cli.help_terminal` → `core\cli\help_terminal.py`
+- `core.cli.helpbox` → `core\cli\helpbox.py`
+- `core.cli.palette` → `core\cli\palette.py`
+- `core.cli.settings_flow` → `core\cli\settings_flow.py`
+- `core.cli.start_flow` → `core\cli\start_flow.py`
+- `core.cli.state` → `core\cli\state.py`
+- `core.cli.ui` → `core\cli\ui.py`
+- `core.cli.workflow.__init__` → `core\cli\workflow\__init__.py`
+- `core.cli.workflow.activity_log` → `core\cli\workflow\activity_log.py`
+- `core.cli.workflow.checkpointer` → `core\cli\workflow\checkpointer.py`
+
+### agents
+Agent roles, routing, team map, and execution helpers
+- `agents.__init__` → `agents\__init__.py`
+- `agents.ambassador` → `agents\ambassador.py`
+- `agents.base_agent` → `agents\base_agent.py`
+- `agents.browser` → `agents\browser.py`
+- `agents.commander` → `agents\commander.py`
+- `agents.expert` → `agents\expert.py`
+- `agents.final_reviewer` → `agents\final_reviewer.py`
+- `agents.fix_worker` → `agents\fix_worker.py`
+- `agents.leader` → `agents\leader.py`
+- `agents.researcher` → `agents\researcher.py`
+- `agents.reviewer` → `agents\reviewer.py`
+- `agents.secretary` → `agents\secretary.py`
+- `agents.teammap.__init__` → `agents\teamMap\__init__.py`
+- `agents.teammap._team_map` → `agents\teamMap\_team_map.py`
+- `agents.test_agent` → `agents\test_agent.py`
+- `agents.tool_curator` → `agents\tool_curator.py`
+- `agents.worker` → `agents\worker.py`
+
+### utils
+Shared helpers for tracking, logging, environment, and files
+- `core.dashboard.utils` → `core\dashboard\utils.py`
+- `utils.__init__` → `utils\__init__.py`
+- `utils.activity_badges` → `utils\activity_badges.py`
+- `utils.ask_history` → `utils\ask_history.py`
+- `utils.budget_guard` → `utils\budget_guard.py`
+- `utils.delta_brief` → `utils\delta_brief.py`
+- `utils.env_guard` → `utils\env_guard.py`
+- `utils.file_manager` → `utils\file_manager.py`
+- `utils.free_model_finder` → `utils\free_model_finder.py`
+- `utils.logger` → `utils\logger.py`
+- `utils.tracker` → `utils\tracker.py`
+
+### tests
+Automated validation and regression coverage
+- `tests.conftest` → `tests\conftest.py`
+- `tests.test_dashboard_batches_browser` → `tests\test_dashboard_batches_browser.py`
+- `tests.test_dashboard_helpers` → `tests\test_dashboard_helpers.py`
+- `tests.test_dashboard_history_browser` → `tests\test_dashboard_history_browser.py`
+- `tests.test_dashboard_pdf` → `tests\test_dashboard_pdf.py`
+- `tests.test_dashboard_pdf_font_fallback` → `tests\test_dashboard_pdf_font_fallback.py`
+- `tests.test_dashboard_range_picker` → `tests\test_dashboard_range_picker.py`
+- `tests.test_dashboard_render` → `tests\test_dashboard_render.py`
+- `tests.test_dashboard_turn_views` → `tests\test_dashboard_turn_views.py`
+- `tests.test_security_and_config` → `tests\test_security_and_config.py`
+- `tests.test_tracker_dashboard_summary` → `tests\test_tracker_dashboard_summary.py`
+
+### graphrag_standalone
+Self-contained repository graph index used internally for retrieval
+- `graphrag_standalone.readme` → `graphrag_standalone\README.md`
+- `graphrag_standalone.__init__` → `graphrag_standalone\__init__.py`
+- `graphrag_standalone.__main__` → `graphrag_standalone\__main__.py`
+- `graphrag_standalone.cli` → `graphrag_standalone\cli.py`
+- `graphrag_standalone.indexer` → `graphrag_standalone\indexer.py`
+
+## Symbol Hotspots
+- `Ambassador` (class) in `agents\ambassador.py`:27
+- `_classify_tier_fallback` (function) in `agents\ambassador.py`:75
+- `BudgetExceeded` (class) in `agents\base_agent.py`:41
+- `BaseAgent` (class) in `agents\base_agent.py`:46
+- `Expert` (class) in `agents\expert.py`:37
+- `BaseLeader` (class) in `agents\leader.py`:51
+- `LeaderLow` (class) in `agents\leader.py`:222
+- `LeaderMed` (class) in `agents\leader.py`:243
+- `LeaderHigh` (class) in `agents\leader.py`:261
+- `TeamState` (class) in `agents\teamMap\_team_map.py`:29
+- `WorkflowDisplayPolicy` (class) in `core\cli\workflow\display_policy.py`:7
+- `_project_root_default` (function) in `core\cli\workflow\monitor.py`:30
+- `CheckpointSearchScreen` (class) in `core\cli\workflow\monitor.py`:303
+- `ActivityLogScreen` (class) in `core\cli\workflow\monitor.py`:327
+- `ContextFilePreviewScreen` (class) in `core\cli\workflow\monitor.py`:346
+- `RegeneratePromptScreen` (class) in `core\cli\workflow\monitor.py`:381
+- `ContextReviewScreen` (class) in `core\cli\workflow\monitor.py`:411
+- `WorkflowMonitorApp` (class) in `core\cli\workflow\monitor.py`:492
+- `MEMORYSTATUSEX` (class) in `core\config\hardware.py`:65
+- `ConfigError` (class) in `core\config\service.py`:23
+
+## Usage Tips
+- Search files with `search-files`
+- Search modules with `search-modules`
+- Search symbols with `search-symbols`
+- Trace symbol usage with `find-usage`

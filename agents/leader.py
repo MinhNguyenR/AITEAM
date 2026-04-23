@@ -27,13 +27,13 @@ from typing import Optional
 from agents.base_agent import BaseAgent
 from core.config import config
 from core.config.constants import STATE_CHAR_LIMIT_DEFAULT, STATE_CHAR_LIMIT_LOW
-from core.prompts import (
+from core.domain.prompts import (
     LEADER_SYSTEM_PROMPT,
     build_leader_medium_prompt,
     build_leader_low_prompt,
     build_leader_high_prompt,
 )
-from utils.delta_brief import is_no_context
+from core.domain.delta_brief import is_no_context
 from utils.file_manager import atomic_write_text
 
 logger = logging.getLogger(__name__)
@@ -140,12 +140,15 @@ class BaseLeader(BaseAgent):
             cost=self.session_cost,
         )
 
-        try:
-            from core.storage.graphrag_store import try_ingest_context_md
-
-            try_ingest_context_md(context_path, state_data, self.agent_name)
-        except (ImportError, OSError, ValueError, TypeError):
-            logger.debug("[%s] GraphRAG ingest skipped", self.agent_name)
+        from utils.graphrag_utils import try_ingest_context, try_ingest_prompt_doc
+        try_ingest_context(context_path, state_data, self.agent_name)
+        try_ingest_prompt_doc(
+            str(state_data.get("task_uuid") or ""),
+            self.agent_name,
+            "generate_context",
+            user_prompt[:8000],
+            context_content[:8000],
+        )
 
         return str(context_path)
 

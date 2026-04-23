@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
-from utils import ask_history
+from core.storage import ask_history
 from utils.env_guard import redact_for_display
 
 _SETTINGS_FILE = Path.home() / ".ai-team" / "settings.json"
@@ -13,6 +14,7 @@ _LEGACY_SETTINGS_FILE = Path.home() / ".ai-team" / "cli_settings.json"
 _DEFAULT_SETTINGS = {
     "theme": "dark",
     "auto_accept_context": False,
+    "auto_context_action": "ask",  # ask | accept | decline — on context gate / delete
     "daily_budget_usd": None,
     "monthly_budget_usd": None,
     "yearly_budget_usd": None,
@@ -22,6 +24,7 @@ _DEFAULT_SETTINGS = {
 }
 
 _cli_settings: Optional[dict] = None
+_cli_settings_lock = threading.Lock()
 
 
 def load_cli_settings() -> dict:
@@ -49,9 +52,10 @@ def load_cli_settings() -> dict:
 
 def get_cli_settings() -> dict:
     global _cli_settings
-    if _cli_settings is None:
-        _cli_settings = load_cli_settings()
-    return _cli_settings
+    with _cli_settings_lock:
+        if _cli_settings is None:
+            _cli_settings = load_cli_settings()
+        return dict(_cli_settings)
 
 
 def save_cli_settings(settings: dict) -> None:
@@ -61,8 +65,11 @@ def save_cli_settings(settings: dict) -> None:
     mode = str(merged.get("workflow_view_mode") or "chain").lower()
     merged["workflow_view_mode"] = "list" if mode == "list" else "chain"
     merged["help_external_terminal"] = bool(merged.get("help_external_terminal", False))
+    aca = str(merged.get("auto_context_action") or "ask").lower()
+    merged["auto_context_action"] = aca if aca in ("ask", "accept", "decline") else "ask"
     _SETTINGS_FILE.write_text(json.dumps(merged, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    _cli_settings = merged
+    with _cli_settings_lock:
+        _cli_settings = merged
 
 
 def _actions_log_path() -> Path:
@@ -131,11 +138,13 @@ _OVERRIDES_FILE = Path.home() / ".ai-team" / "model_overrides.json"
 
 def _load_overrides() -> dict:
     if not _OVERRIDES_FILE.exists():
-        return {"model_overrides": {}, "prompt_overrides": {}}
+        return {"model_overrides": {}, "prompt_overrides": {}, "sampling_overrides": {}}
     try:
-        return json.loads(_OVERRIDES_FILE.read_text(encoding="utf-8"))
+        data = json.loads(_OVERRIDES_FILE.read_text(encoding="utf-8"))
+        data.setdefault("sampling_overrides", {})
+        return data
     except (OSError, json.JSONDecodeError, TypeError, ValueError):
-        return {"model_overrides": {}, "prompt_overrides": {}}
+        return {"model_overrides": {}, "prompt_overrides": {}, "sampling_overrides": {}}
 
 
 def _save_overrides(data: dict) -> None:
@@ -161,16 +170,48 @@ def reset_model_override(role_key: str) -> None:
     log_system_action("override.model.reset", role_key)
 
 
+def _encrypt_prompt(text: str) -> dict:
+    """Encrypt prompt text with vault Fernet if available, else store plaintext."""
+    try:
+        from core.config import Config
+        from core.storage.knowledge.vault_key import load_or_create_vault_key
+        from cryptography.fernet import Fernet
+
+        key = load_or_create_vault_key(Config.BASE_DIR)
+        if key:
+            token = Fernet(key.encode("ascii")).encrypt(text.encode("utf-8")).decode("ascii")
+            return {"enc": token, "encrypted": True}
+    except Exception:
+        pass
+    return {"prompt": text, "encrypted": False}
+
+
+def _decrypt_prompt(entry: dict) -> str:
+    if not entry.get("encrypted"):
+        return entry.get("prompt", "")
+    try:
+        from core.config import Config
+        from core.storage.knowledge.vault_key import load_or_create_vault_key
+        from cryptography.fernet import Fernet
+
+        key = load_or_create_vault_key(Config.BASE_DIR)
+        if key:
+            return Fernet(key.encode("ascii")).decrypt(entry["enc"].encode("ascii")).decode("utf-8")
+    except Exception:
+        pass
+    return ""
+
+
 def get_prompt_overrides() -> dict:
-    return _load_overrides().get("prompt_overrides", {})
+    raw = _load_overrides().get("prompt_overrides", {})
+    return {k: {**v, "prompt": _decrypt_prompt(v)} for k, v in raw.items()}
 
 
 def set_prompt_override(role_key: str, prompt_text: str) -> None:
     data = _load_overrides()
-    data.setdefault("prompt_overrides", {})[role_key] = {
-        "prompt": prompt_text,
-        "updated_at": datetime.now().isoformat(),
-    }
+    entry = _encrypt_prompt(prompt_text)
+    entry["updated_at"] = datetime.now().isoformat()
+    data.setdefault("prompt_overrides", {})[role_key] = entry
     _save_overrides(data)
     log_system_action("override.prompt.set", role_key)
 
@@ -187,6 +228,32 @@ def reset_all_role_overrides(role_key: str) -> None:
     reset_prompt_override(role_key)
 
 
+def get_sampling_overrides() -> dict[str, Any]:
+    return _load_overrides().get("sampling_overrides", {}) or {}
+
+
+def update_sampling_override(role_key: str, **kwargs: Any) -> None:
+    data = _load_overrides()
+    rk = str(role_key or "").upper()
+    bucket: dict[str, Any] = dict(data.setdefault("sampling_overrides", {}).get(rk) or {})
+    for k in ("temperature", "top_p", "max_tokens"):
+        if k in kwargs and kwargs[k] is not None:
+            bucket[k] = kwargs[k]
+    data.setdefault("sampling_overrides", {})[rk] = bucket
+    _save_overrides(data)
+    log_system_action("override.sampling.set", f"{rk}={bucket}")
+
+
+def reset_sampling_override(role_key: str | None = None) -> None:
+    data = _load_overrides()
+    if role_key:
+        data.setdefault("sampling_overrides", {}).pop(str(role_key).upper(), None)
+    else:
+        data["sampling_overrides"] = {}
+    _save_overrides(data)
+    log_system_action("override.sampling.reset", str(role_key or "ALL"))
+
+
 __all__ = [
     "load_cli_settings", "get_cli_settings", "save_cli_settings",
     "log_system_action",
@@ -194,4 +261,5 @@ __all__ = [
     "get_model_overrides", "set_model_override", "reset_model_override",
     "get_prompt_overrides", "set_prompt_override", "reset_prompt_override",
     "reset_all_role_overrides",
+    "get_sampling_overrides", "update_sampling_override", "reset_sampling_override",
 ]

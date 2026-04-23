@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from core.dashboard import render as dashboard_render
+import core.dashboard.tui.render as dashboard_render
 
 
 def test_pick_range_rows_custom_iso(monkeypatch):

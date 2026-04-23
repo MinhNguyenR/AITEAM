@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 
-from core.dashboard.state import DashboardRangeState
-from core.dashboard.utils import default_range, paginate, safe_float, safe_int, sort_rows_chronological
+from core.dashboard.reporting.state import DashboardRangeState
+from core.dashboard.tui.utils import default_range, paginate, safe_float, safe_int, sort_rows_chronological
 
 
 def test_safe_int_and_float():

@@ -84,7 +84,7 @@ class TaskWorkspace:
 
 
 def paths_for_task(task_uuid: str) -> TaskWorkspace:
-    from utils.delta_brief import CONTEXT_FILENAME, STATE_FILENAME, VALIDATION_REPORT_FILENAME
+    from core.domain.delta_brief import CONTEXT_FILENAME, STATE_FILENAME, VALIDATION_REPORT_FILENAME
 
     run_dir = ensure_run_dir(task_uuid)
     return TaskWorkspace(

@@ -1,0 +1,5 @@
+graft core/resources
+include README.md
+include LICENSE
+include CHANGELOG.md
+include docs/security.md

@@ -56,7 +56,7 @@ class Config:
         self._initialized = True
         load_environment(console)
         try:
-            require_openrouter_api_key()
+            require_openrouter_api_key(console)
         except RuntimeError as e:
             raise ConfigError(str(e)) from e
         self._detect_hardware()

@@ -218,7 +218,17 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "temperature": 0.1,
         "top_p": 1.0,
     },
+    "COMPACT_WORKER": {
+        "model": "x-ai/grok-4.1-fast",
+        "role": "Compact Worker",
+        "tier": "Compact",
+        "priority": 0,
+        "max_tokens": 252000,
+        "temperature": 0.6,
+        "top_p": 0.95,
+    },
 }
+
 
 TIER_MODEL_MAP = {
     "LOW": "xiaomi/mimo-v2-flash",

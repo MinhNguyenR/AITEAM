@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from core.dashboard import total as total_mod
-from core.dashboard.state import DashboardRangeState
+from core.dashboard.shell import total as total_mod
+from core.dashboard.reporting.state import DashboardRangeState
 
 
 def test_batches_browser_advances_pages(monkeypatch):

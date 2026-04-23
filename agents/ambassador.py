@@ -7,20 +7,25 @@ Hardware Target: RTX 5080 (16GB VRAM)
 """
 
 import json
+import logging
 import re
 from typing import Optional, Dict, Any
 
-from aiteam_bootstrap import ensure_project_root
+logger = logging.getLogger(__name__)
+
+from core.bootstrap import ensure_project_root
 
 ensure_project_root()
 
-from openai import OpenAI
 
 from core.config import config
-from core.routing_map import selected_leader_for_tier
-from core.prompts import AMBASSADOR_SYSTEM_PROMPT
+from core.domain.routing_map import selected_leader_for_tier
+from core.domain.prompts import AMBASSADOR_SYSTEM_PROMPT
+from utils.tracker import append_usage_log, compute_cost_usd
 from agents.base_agent import BaseAgent
-from utils.delta_brief import DeltaBrief
+from core.domain.delta_brief import DeltaBrief
+from utils.input_validator import validate_user_prompt
+from utils.json_utils import parse_json_resilient, strip_markdown_fences
 
 
 class Ambassador(BaseAgent):
@@ -46,6 +51,7 @@ class Ambassador(BaseAgent):
             budget_limit_usd=budget_limit_usd,
             registry_role_key="AMBASSADOR",
         )
+        self.last_usage_event: Dict[str, Any] = {}
 
     # ----- lightweight helpers -----
 
@@ -130,114 +136,121 @@ class Ambassador(BaseAgent):
         # Default: MEDIUM (safer than LOW for ambiguous tasks)
         return "MEDIUM"
 
+    # ----- helpers -----
+
+    def _call_parse_api(self, user_input: str) -> Dict[str, Any]:
+        """Call the API and return the parsed LLM dict. Raises on any failure."""
+        resp = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": AMBASSADOR_SYSTEM_PROMPT},
+                {"role": "user", "content": user_input},
+            ],
+            temperature=0.1,
+            max_tokens=300,
+            response_format={"type": "json_object"},
+        )
+        usage = getattr(resp, "usage", None)
+        p_tok = int(getattr(usage, "prompt_tokens", 0) or 0)
+        c_tok = int(getattr(usage, "completion_tokens", 0) or 0)
+        if p_tok or c_tok:
+            evt: Dict[str, Any] = {
+                "agent": "Ambassador",
+                "model": self.model_name,
+                "prompt_tokens": p_tok,
+                "completion_tokens": c_tok,
+                "total_tokens": p_tok + c_tok,
+            }
+            evt["cost_usd"] = compute_cost_usd(evt)
+            append_usage_log(evt)
+            self.last_usage_event = evt
+        content = resp.choices[0].message.content
+        if not content:
+            raise ValueError("API returned empty content")
+        return parse_json_resilient(strip_markdown_fences(content.strip()))
+
+    @staticmethod
+    def _apply_tier_upgrade_rules(tier: str, is_cuda: bool, complexity: float, is_hardware_bound: bool) -> str:
+        """Apply CUDA and complexity upgrade rules to the initial tier."""
+        if is_cuda:
+            return "HARD"
+        if complexity > 0.8 and not is_hardware_bound:
+            return "EXPERT"
+        return tier
+
+    def _build_delta_brief(
+        self,
+        user_input: str,
+        llm: Dict[str, Any],
+        vram: Optional[float],
+        lang: str,
+    ) -> DeltaBrief:
+        """Build a DeltaBrief from parsed LLM response dict."""
+        tier = llm.get("tier", self._classify_tier_fallback(user_input)).upper()
+        is_cuda = bool(llm.get("is_cuda_required", False))
+        complexity = float(llm.get("complexity_score", 0.5))
+        is_hw = bool(llm.get("is_hardware_bound", False))
+        tier = self._apply_tier_upgrade_rules(tier, is_cuda, complexity, is_hw)
+        return DeltaBrief(
+            original_prompt=user_input,
+            summary=llm.get("summary", user_input[:100]),
+            tier=tier,
+            target_model=config.get_model_for_tier(tier),
+            selected_leader=selected_leader_for_tier(tier),
+            is_cuda_required=is_cuda,
+            estimated_vram_usage=llm.get("estimated_vram_usage") or vram,
+            is_hardware_bound=is_hw,
+            parameters=llm.get("parameters", {}),
+            language_detected=llm.get("language_detected", lang),
+            complexity_score=complexity,
+        )
+
+    def _build_fallback_delta_brief(self, user_input: str, vram: Optional[float], lang: str) -> DeltaBrief:
+        """Build a DeltaBrief using rule-based fallback (no API)."""
+        tier = self._classify_tier_fallback(user_input)
+        is_cuda = bool(re.search(r"cuda|gpu|kernel", user_input, re.IGNORECASE))
+        is_hw = bool(re.search(r"vram|memory|rtx|hardware", user_input, re.IGNORECASE))
+        complexity = {"LOW": 0.3, "MEDIUM": 0.6, "EXPERT": 0.85, "HARD": 0.95}.get(tier, 0.5)
+        tier = self._apply_tier_upgrade_rules(tier, is_cuda, complexity, is_hw)
+        return DeltaBrief(
+            original_prompt=user_input,
+            summary=user_input[:100],
+            tier=tier,
+            target_model=config.get_model_for_tier(tier),
+            selected_leader=selected_leader_for_tier(tier),
+            is_cuda_required=is_cuda,
+            estimated_vram_usage=vram,
+            is_hardware_bound=is_hw,
+            parameters={},
+            language_detected=lang,
+            complexity_score=complexity,
+        )
+
     # ----- core -----
 
     def parse(self, user_input: str) -> DeltaBrief:
         """Parse user input → DeltaBrief with tier + model from config."""
+        user_input = validate_user_prompt(user_input)
         vram = self._extract_vram(user_input)
         lang = self._detect_language(user_input)
-
         try:
-            resp = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {"role": "system", "content": AMBASSADOR_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_input},
-                ],
-                temperature=0.1,
-                max_tokens=300,
-                response_format={"type": "json_object"},
-            )
-            content = resp.choices[0].message.content
-            if not content:
-                raise ValueError("API returned empty content")
-            content = content.strip()
-            # Strip markdown fences
-            content = re.sub(r"^```(?:json)?\n?", "", content)
-            content = re.sub(r"\n?```$", "", content)
-
-            # Try to extract JSON from potentially messy response
-            llm = None
-            try:
-                llm = json.loads(content)
-            except json.JSONDecodeError as e:
-                # Fallback 1: try to find JSON object in text
-                match = re.search(r'\{[^{}]*\}', content, re.DOTALL)
-                if match:
-                    try:
-                        llm = json.loads(match.group())
-                    except json.JSONDecodeError:
-                        llm = None
-                
-                # Fallback 2: try to fix common JSON errors
-                if not llm:
-                    # Remove trailing commas, fix quotes
-                    fixed_content = re.sub(r',\s*}', '}', content)
-                    fixed_content = re.sub(r',\s*]', ']', fixed_content)
-                    try:
-                        llm = json.loads(fixed_content)
-                    except json.JSONDecodeError:
-                        llm = None
-                
-                if not llm:
-                    raise ValueError(f"JSON parse error: {e}")
-
-            tier = llm.get("tier", self._classify_tier_fallback(user_input)).upper()
-            is_cuda = llm.get("is_cuda_required", False)
-            complexity = float(llm.get("complexity_score", 0.5))
-            
-            # Apply auto-upgrade rules
-            # Rule 1: CUDA required → HARD
-            if is_cuda:
-                tier = "HARD"
-            # Rule 2: High complexity but not hardware → EXPERT
-            elif complexity > 0.8 and not llm.get("is_hardware_bound", False):
-                tier = "EXPERT"
-            
-            selected_leader = selected_leader_for_tier(tier)
-            
-            return DeltaBrief(
-                original_prompt=user_input,
-                summary=llm.get("summary", user_input[:100]),
-                tier=tier,
-                target_model=config.get_model_for_tier(tier),
-                selected_leader=selected_leader,
-                is_cuda_required=is_cuda,
-                estimated_vram_usage=llm.get("estimated_vram_usage") or vram,
-                is_hardware_bound=llm.get("is_hardware_bound", False),
-                parameters=llm.get("parameters", {}),
-                language_detected=llm.get("language_detected", lang),
-                complexity_score=complexity,
-            )
-
+            llm = self._call_parse_api(user_input)
+            brief = self._build_delta_brief(user_input, llm, vram, lang)
         except (OSError, RuntimeError, ValueError, TypeError, json.JSONDecodeError) as e:
-            print(f"[Ambassador] API error: {e} — fallback")
-            tier = self._classify_tier_fallback(user_input)
-            is_cuda = bool(re.search(r"cuda|gpu|kernel", user_input, re.IGNORECASE))
-            is_hw = bool(re.search(r"vram|memory|rtx|hardware", user_input, re.IGNORECASE))
-            complexity = {"LOW": 0.3, "MEDIUM": 0.6, "EXPERT": 0.85, "HARD": 0.95}.get(tier, 0.5)
-            
-            # Apply auto-upgrade rules in fallback too
-            if is_cuda:
-                tier = "HARD"
-            elif complexity > 0.8 and not is_hw:
-                tier = "EXPERT"
-            
-            selected_leader = selected_leader_for_tier(tier)
-            
-            return DeltaBrief(
-                original_prompt=user_input,
-                summary=user_input[:100],
-                tier=tier,
-                target_model=config.get_model_for_tier(tier),
-                selected_leader=selected_leader,
-                is_cuda_required=is_cuda,
-                estimated_vram_usage=vram,
-                is_hardware_bound=is_hw,
-                parameters={},
-                language_detected=lang,
-                complexity_score=complexity,
+            logger.warning("[Ambassador] API error: %s — using fallback", e)
+            brief = self._build_fallback_delta_brief(user_input, vram, lang)
+        try:
+            from utils.graphrag_utils import try_ingest_prompt_doc
+            try_ingest_prompt_doc(
+                str(brief.task_uuid),
+                "Ambassador",
+                "parse",
+                user_input[:2000],
+                json.dumps({"tier": brief.tier, "summary": brief.summary, "model": brief.target_model}, ensure_ascii=False),
             )
+        except (OSError, json.JSONDecodeError, ValueError, TypeError, RuntimeError) as e:
+            logger.debug("[Ambassador] GraphRAG ingest skipped: %s", type(e).__name__)
+        return brief
 
     def parse_to_dict(self, user_input: str) -> Dict[str, Any]:
         return self.parse(user_input).model_dump()
@@ -342,7 +355,6 @@ class Ambassador(BaseAgent):
 if __name__ == "__main__":
     from rich.console import Console
     from rich.panel import Panel
-    from rich.json import JSON
 
     console = Console()
     ambassador = Ambassador(budget_limit_usd=1.0)  # Test with $1 budget

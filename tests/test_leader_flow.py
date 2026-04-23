@@ -11,7 +11,7 @@ import json
 import sys
 from pathlib import Path
 
-from aiteam_bootstrap import ensure_project_root
+from core.bootstrap import ensure_project_root
 
 _project_root = str(ensure_project_root())
 

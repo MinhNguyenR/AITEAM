@@ -13,6 +13,11 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
+def _fts5_escape_term(term: str) -> str:
+    """Strip FTS5 special chars that can break MATCH syntax."""
+    return re.sub(r'["\\\n\r\t]', "", term)
+
+
 def _db_path() -> Path:
     p = Path.home() / ".ai-team" / "graphrag.sqlite"
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -112,7 +117,8 @@ def search_fts(query: str, limit: int = 20) -> List[Dict[str, Any]]:
     q = (query or "").strip()
     if not q:
         return []
-    terms = [t for t in re.split(r"\W+", q, flags=re.UNICODE) if len(t) > 1][:8]
+    terms = [_fts5_escape_term(t) for t in re.split(r"\W+", q, flags=re.UNICODE) if len(t) > 1][:8]
+    terms = [t for t in terms if t]
     if not terms:
         return []
     match_q = " AND ".join(f'body: "{t}"' for t in terms)
@@ -160,6 +166,69 @@ def neighbor_edges(node_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         return rows
     except (OSError, sqlite3.Error, ValueError) as e:
         logger.warning("[graphrag] neighbor_edges: %s", e)
+        return []
+
+
+def ingest_prompt_doc(
+    task_uuid: str,
+    role: str,
+    stage: str,
+    prompt_text: str,
+    response_text: str,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> None:
+    meta = metadata or {}
+    ts = datetime.now().isoformat()
+    body = f"{prompt_text}\n---RESPONSE---\n{response_text}"
+    if len(body) > 500_000:
+        body = body[:500_000]
+    path_key = f"prompt:{task_uuid}:{role}:{stage}"
+    try:
+        conn = _connect()
+        _ensure_schema(conn)
+        conn.execute("DELETE FROM doc_fts WHERE path = ?", (path_key,))
+        conn.execute(
+            "INSERT INTO doc_fts(task_uuid, kind, path, producer, body) VALUES (?,?,?,?,?)",
+            (task_uuid or "", "prompt_doc", path_key, role, body),
+        )
+        if task_uuid:
+            conn.execute(
+                "INSERT INTO rag_edges(src, dst, relation, payload_json, ts) VALUES (?,?,?,?,?)",
+                (task_uuid, path_key, "has_prompt", json.dumps({"role": role, "stage": stage, **meta}), ts),
+            )
+        conn.commit()
+        conn.close()
+    except sqlite3.OperationalError as e:
+        if "no such module" in str(e).lower() or "fts5" in str(e).lower():
+            logger.warning("[graphrag] FTS5 unavailable: %s", e)
+        else:
+            logger.warning("[graphrag] ingest_prompt_doc: %s", e)
+    except (OSError, sqlite3.Error, TypeError, ValueError) as e:
+        logger.warning("[graphrag] ingest_prompt_doc: %s", e)
+
+
+def search_similar_tasks(query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    q = (query or "").strip()
+    if not q:
+        return []
+    terms = [_fts5_escape_term(t) for t in re.split(r"\W+", q, flags=re.UNICODE) if len(t) > 1][:8]
+    terms = [t for t in terms if t]
+    if not terms:
+        return []
+    match_q = " AND ".join(f'body: "{t}"' for t in terms)
+    try:
+        conn = _connect()
+        _ensure_schema(conn)
+        cur = conn.execute(
+            "SELECT task_uuid, kind, path, producer, snippet(doc_fts, 4, '[', ']', '…', 32) AS snip "
+            "FROM doc_fts WHERE doc_fts MATCH ? AND kind = 'prompt_doc' LIMIT ?",
+            (match_q, max(1, min(limit, 100))),
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+        conn.close()
+        return rows
+    except (OSError, sqlite3.Error, ValueError) as e:
+        logger.warning("[graphrag] search_similar_tasks: %s", e)
         return []
 
 

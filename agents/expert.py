@@ -25,7 +25,7 @@ from typing import Optional
 
 from agents.base_agent import BaseAgent
 from core.config import config
-from core.prompts import (
+from core.domain.prompts import (
     EXPERT_SYSTEM_PROMPT,
     EXPERT_COPLAN_SYSTEM_PROMPT,
     build_expert_solo_prompt,
@@ -117,12 +117,8 @@ class Expert(BaseAgent):
             cost=self.session_cost,
         )
 
-        try:
-            from core.storage.graphrag_store import try_ingest_context_md
-
-            try_ingest_context_md(context_path, state_data, self.agent_name)
-        except (ImportError, OSError, ValueError, TypeError):
-            logger.debug("[%s] GraphRAG ingest skipped (solo)", self.agent_name)
+        from utils.graphrag_utils import try_ingest_context
+        try_ingest_context(context_path, state_data, self.agent_name)
 
         return str(context_path)
 
@@ -131,6 +127,27 @@ class Expert(BaseAgent):
         return build_expert_solo_prompt(state_data)
 
     # ===== COPLAN MODE =====
+
+    def _read_validation_inputs(
+        self,
+        draft_context_path: Path,
+        state_path: Path,
+    ) -> tuple:
+        """Read draft context text and state dict from disk.
+
+        Returns (draft_text, state_data). Raises FileNotFoundError if draft missing.
+        """
+        if not draft_context_path.exists():
+            raise FileNotFoundError(f"Draft context not found: {draft_context_path}")
+        draft = draft_context_path.read_text(encoding="utf-8")
+        state_data: dict = {}
+        if state_path.exists():
+            try:
+                with open(state_path, "r", encoding="utf-8") as f:
+                    state_data = json.load(f)
+            except (OSError, json.JSONDecodeError) as e:
+                logger.warning("[%s] Could not read state.json: %s", self.agent_name, e)
+        return draft, state_data
 
     def validate_plan(self, draft_context_path: str | Path, state_path: str | Path) -> str:
         """
@@ -148,16 +165,7 @@ class Expert(BaseAgent):
         """
         draft_context_path = Path(draft_context_path)
         state_path = Path(state_path)
-
-        if not draft_context_path.exists():
-            raise FileNotFoundError(f"Draft context not found: {draft_context_path}")
-
-        draft = draft_context_path.read_text(encoding="utf-8")
-
-        state_data = {}
-        if state_path.exists():
-            with open(state_path, "r", encoding="utf-8") as f:
-                state_data = json.load(f)
+        draft, state_data = self._read_validation_inputs(draft_context_path, state_path)
 
         logger.info(f"[{self.agent_name}] COPLAN mode — validating {draft_context_path}")
 
@@ -245,17 +253,16 @@ class Expert(BaseAgent):
 
         atomic_write_text(context_path, original + patch, encoding="utf-8")
         logger.info(f"[{self.agent_name}] Patched context.md with Expert revisions")
-        try:
-            from core.storage.graphrag_store import try_ingest_context_md
-
-            st = context_path.parent / "state.json"
-            state_data = {}
-            if st.exists():
+        st = context_path.parent / "state.json"
+        state_data = {}
+        if st.exists():
+            try:
                 with open(st, "r", encoding="utf-8") as f:
                     state_data = json.load(f)
-            try_ingest_context_md(context_path, state_data, self.agent_name)
-        except (ImportError, OSError, ValueError, TypeError):
-            logger.debug("[%s] GraphRAG ingest skipped (revision patch)", self.agent_name)
+            except (OSError, json.JSONDecodeError):
+                pass
+        from utils.graphrag_utils import try_ingest_context
+        try_ingest_context(context_path, state_data, self.agent_name)
 
     def _extract_section(self, text: str, section_name: str) -> Optional[str]:
         """Extract content under a '### Section Name' header."""
@@ -308,7 +315,8 @@ ExpertMimo = Expert
 if __name__ == "__main__":
     from rich.console import Console
     from rich.panel import Panel
-    import tempfile, json
+    import tempfile
+    import json
 
     console = Console()
 

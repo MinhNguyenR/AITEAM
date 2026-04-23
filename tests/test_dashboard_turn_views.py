@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from core.dashboard import history as history_mod
-from core.dashboard import total as total_mod
-from core.dashboard.state import DashboardRangeState
+from core.dashboard.shell import history as history_mod
+from core.dashboard.shell import total as total_mod
+from core.dashboard.reporting.state import DashboardRangeState
 
 
 def test_history_default_one_day(monkeypatch):

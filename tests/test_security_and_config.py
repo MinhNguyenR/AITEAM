@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import unittest.mock
 from pathlib import Path
 
 from agents.base_agent import BaseAgent
@@ -8,6 +9,12 @@ from core.cli.state import log_system_action
 from core.config.settings import mask_api_key
 from core.storage.knowledge_store import _vault_wrap
 from utils.env_guard import redact_for_display
+from utils.input_validator import (
+    MAX_PROMPT_CHARS,
+    PromptInvalid,
+    PromptTooLong,
+    validate_user_prompt,
+)
 
 
 class _DummyAgent(BaseAgent):
@@ -54,14 +61,85 @@ def test_log_system_action_redacts_detail(tmp_path, monkeypatch):
     assert "abcdef1234567890" not in rec["detail"]
 
 
-def test_vault_wrap_warns_and_falls_back_when_key_missing(monkeypatch, caplog):
+def test_vault_wrap_auto_creates_key_and_encrypts(monkeypatch, tmp_path):
     monkeypatch.delenv("AI_TEAM_VAULT_KEY", raising=False)
-    with caplog.at_level("WARNING"):
-        wrapped = _vault_wrap(b"compressed-bytes")
-    assert wrapped == b"compressed-bytes"
-    assert any("unencrypted" in record.message for record in caplog.records)
+    from core.config import Config
+    from core.storage.knowledge.sqlite_repository import _vault_unwrap as _unwrap
+
+    monkeypatch.setattr(Config, "BASE_DIR", tmp_path, raising=False)
+
+    wrapped = _vault_wrap(b"compressed-bytes")
+    assert wrapped != b"compressed-bytes"
+    assert wrapped.startswith(b"AITEAMF1")
+    assert (tmp_path / "vault.key").is_file()
+    assert _unwrap(wrapped, tmp_path) == b"compressed-bytes"
 
 
 def test_read_project_file_rejects_traversal(tmp_path):
     agent = _DummyAgent(extra_search_roots=[tmp_path])
     assert agent.read_project_file("../secret.txt") is None
+
+
+# ── input_validator tests ────────────────────────────────────────────────────
+
+def test_validate_prompt_returns_stripped():
+    assert validate_user_prompt("  hello  ") == "hello"
+
+
+def test_validate_prompt_max_length():
+    long_text = "x" * (MAX_PROMPT_CHARS + 1)
+    try:
+        validate_user_prompt(long_text)
+        assert False, "expected PromptTooLong"
+    except PromptTooLong:
+        pass
+
+
+def test_validate_prompt_null_bytes():
+    try:
+        validate_user_prompt("hello\x00world")
+        assert False, "expected PromptInvalid"
+    except PromptInvalid:
+        pass
+
+
+def test_validate_prompt_empty():
+    try:
+        validate_user_prompt("   ")
+        assert False, "expected PromptInvalid"
+    except PromptInvalid:
+        pass
+
+
+def test_validate_prompt_valid():
+    result = validate_user_prompt("Write a unit test for my Python function")
+    assert result == "Write a unit test for my Python function"
+
+
+# ── ssl verify test ──────────────────────────────────────────────────────────
+
+def test_ssl_verify_flag():
+    with unittest.mock.patch("requests.get") as mock_get:
+        mock_get.return_value = unittest.mock.MagicMock(
+            status_code=200,
+            json=lambda: {"data": {"total_credits": 10.0, "usage": 2.0}},
+            raise_for_status=lambda: None,
+        )
+        from utils.tracker.tracker_openrouter import fetch_wallet
+        fetch_wallet()
+        _, kwargs = mock_get.call_args
+        assert kwargs.get("verify") is True
+
+
+# ── log_action OSError test ──────────────────────────────────────────────────
+
+def test_log_action_oserror_is_warned(tmp_path, monkeypatch):
+    agent = _DummyAgent()
+    agent.data_dir = tmp_path / "data"
+    with unittest.mock.patch("builtins.open", side_effect=OSError("disk full")):
+        with unittest.mock.patch.object(agent.__class__.__bases__[0], "_changelog_lock"):
+            # Should not raise; OSError must be caught and logged as warning
+            try:
+                agent.log_action("test decision", "test action")
+            except OSError:
+                assert False, "log_action must not propagate OSError"

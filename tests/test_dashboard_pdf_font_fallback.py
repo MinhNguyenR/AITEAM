@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.dashboard.render import export_pdf
-from core.dashboard.state import DashboardRangeState
+from core.dashboard.output.pdf_export import export_pdf
+from core.dashboard.reporting.state import DashboardRangeState
 
 
 def test_export_pdf_falls_back_without_font(monkeypatch, tmp_path: Path):
@@ -41,11 +41,12 @@ def test_export_pdf_falls_back_without_font(monkeypatch, tmp_path: Path):
             called["output"] = path
 
     monkeypatch.setattr("fpdf.FPDF", FakeFPDF)
-    monkeypatch.setattr("core.dashboard.render.Path", Path)
-    monkeypatch.setattr("core.dashboard.render.__file__", str(tmp_path / "render.py"))
-    monkeypatch.setattr("core.dashboard.render._select_pdf_fonts", lambda project_root=None: (None, None, "txt"))
-    monkeypatch.setattr("core.dashboard.render.tracker.summarize_tokens_by_cli_batches", lambda s, u: [])
-    monkeypatch.setattr("core.dashboard.render.tracker.token_io_totals", lambda rows: {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0})
+    monkeypatch.setattr("core.dashboard.output.pdf_export.Path", Path)
+    monkeypatch.setattr("core.dashboard.output.pdf_export._candidate_fonts", lambda project_root=None: (None, None, "txt"))
+    monkeypatch.setattr("utils.tracker.summarize_tokens_by_cli_batches", lambda s, u: [])
+    monkeypatch.setattr("utils.tracker.read_usage_rows_timerange", lambda s, u: [])
+    monkeypatch.setattr("utils.tracker.get_period_usage", lambda: {})
+    monkeypatch.setattr("utils.tracker.token_io_totals", lambda rows: {"prompt_tokens": 0, "completion_tokens": 0})
 
     export_pdf(tmp_path, fake_range)
 

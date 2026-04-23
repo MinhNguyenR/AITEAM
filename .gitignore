@@ -6,7 +6,15 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.audit-venv/
+.graphrag/
 
 # Local runtime data
 .ai-team/
 .env
+
+# Artifacts that must not be committed
+.coverage
+.coverage.*
+htmlcov/
+.claude/settings.local.json

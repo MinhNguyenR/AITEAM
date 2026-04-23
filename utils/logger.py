@@ -15,7 +15,7 @@ def artifact_detail(path: str | Path, *, task_id: str = "", producer_node: str =
 
 
 def workflow_event(node: str, action: str, detail: Any = "", *, level: str = "info") -> None:
-    from core.cli.workflow.activity_log import append_workflow_activity
+    from core.cli.workflow.runtime.activity_log import append_workflow_activity
 
     append_workflow_activity(node, action, detail, level=level)
 

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.dashboard.render import export_pdf
-from core.dashboard.state import DashboardRangeState
+from core.dashboard.output.pdf_export import export_pdf
+from core.dashboard.reporting.state import DashboardRangeState
 
 
 class DummyTracker:
@@ -35,6 +35,12 @@ def test_export_pdf_uses_existing_times_font(monkeypatch, tmp_path: Path):
         def set_font(self, name, style, size):
             called.setdefault("set_font", []).append((name, style, size))
 
+        def set_text_color(self, *args):
+            pass
+
+        def set_fill_color(self, *args):
+            pass
+
         def cell(self, *args, **kwargs):
             called.setdefault("cell", 0)
             called["cell"] += 1
@@ -49,18 +55,25 @@ def test_export_pdf_uses_existing_times_font(monkeypatch, tmp_path: Path):
         def add_page(self):
             called["add_page"] = called.get("add_page", 0) + 1
 
+        def page_no(self):
+            return 1
+
+        def get_x(self):
+            return 10.0
+
         def output(self, path):
             called["output"] = path
 
     monkeypatch.setattr("fpdf.FPDF", FakeFPDF)
-    monkeypatch.setattr("core.dashboard.render.Path", Path)
-    monkeypatch.setattr("core.dashboard.render.__file__", str(tmp_path / "render.py"))
+    monkeypatch.setattr("core.dashboard.output.pdf_export.Path", Path)
     monkeypatch.setattr(
-        "core.dashboard.render._select_pdf_fonts",
+        "core.dashboard.output.pdf_export._candidate_fonts",
         lambda project_root=None: (font_path, None, "test"),
     )
-    monkeypatch.setattr("core.dashboard.render.tracker.summarize_tokens_by_cli_batches", lambda s, u: [])
-    monkeypatch.setattr("core.dashboard.render.tracker.token_io_totals", lambda rows: {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0})
+    monkeypatch.setattr("utils.tracker.summarize_tokens_by_cli_batches", lambda s, u: [])
+    monkeypatch.setattr("utils.tracker.read_usage_rows_timerange", lambda s, u: [])
+    monkeypatch.setattr("utils.tracker.get_period_usage", lambda: {})
+    monkeypatch.setattr("utils.tracker.token_io_totals", lambda rows: {"prompt_tokens": 0, "completion_tokens": 0})
 
     export_pdf(tmp_path, fake_range)
 
