@@ -13,14 +13,28 @@ _ALLOWED_BASE_URL_HOSTS = {"openrouter.ai", "api.openrouter.ai"}
 def load_environment(console) -> None:
     env_path = find_dotenv(usecwd=True)
     if not env_path:
+        # Try computed repo root (works for editable installs)
         candidate = _REPO_ROOT / ".env"
         if candidate.exists():
             env_path = str(candidate)
+    if not env_path:
+        # Try current working directory — works when package is installed
+        # and user runs `aiteam` from the project directory
+        cwd_candidate = Path.cwd() / ".env"
+        if cwd_candidate.exists():
+            env_path = str(cwd_candidate)
+    if not env_path:
+        # Walk up from CWD to find .env in a parent directory
+        for parent in Path.cwd().parents:
+            p = parent / ".env"
+            if p.exists():
+                env_path = str(p)
+                break
     if env_path:
         load_dotenv(env_path, override=True)
-        console.print("[dim]✓ Loaded environment from: .env[/dim]")
+        console.print(f"[dim]Loaded .env from: {Path(env_path).parent}[/dim]")
     else:
-        console.print("[yellow]⚠ No .env file found. Using system environment variables.[/yellow]")
+        console.print("[yellow]No .env file found. Using system environment variables.[/yellow]")
 
 
 def prompt_and_persist_key(console) -> str:

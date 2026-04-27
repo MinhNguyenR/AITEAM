@@ -15,6 +15,11 @@ _MAX_RETRIES = API_MAX_RETRIES
 _BASE_BACKOFF = API_BASE_BACKOFF_SEC
 
 
+def make_openai_client(api_key: str, base_url: str) -> Any:
+    from openai import OpenAI
+    return OpenAI(api_key=api_key, base_url=base_url)
+
+
 def chat_completions_create(
     client: Any,
     *,
@@ -193,7 +198,7 @@ class APIClient:
                         logger.debug("[%s] Stream callback error: %s", self.agent_name, type(_cb_err).__name__)
                 else:
                     try:
-                        from core.cli.workflow.runtime import session as _ws
+                        from core.cli.python_cli.workflow.runtime import session as _ws
                         _ws.append_leader_stream_chunk(delta)
                     except LookupError:
                         logger.debug("[%s] stream monitor not active, chunk dropped", self.agent_name)

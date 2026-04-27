@@ -70,7 +70,7 @@ class Config:
         self._detect_gpu()
         self._detect_ram()
         console.print(
-            f"[dim]✓ Hardware detected: {self._gpu_name} | VRAM: {self._total_vram_gb:.1f}GB | RAM: {self._total_ram_gb:.1f}GB[/dim]"
+            f"[dim]Hardware detected: {self._gpu_name} | VRAM: {self._total_vram_gb:.1f}GB | RAM: {self._total_ram_gb:.1f}GB[/dim]"
         )
 
     def _detect_gpu(self):
@@ -79,7 +79,7 @@ class Config:
         Config._gpu_name = gpu_name
         Config._total_vram_gb = total_vram_gb
         if device != "cuda":
-            console.print("[yellow]⚠ No GPU detected. Running on CPU mode.[/yellow]")
+            console.print("[yellow]No GPU detected. Running on CPU mode.[/yellow]")
 
     def _detect_ram(self):
         Config._total_ram_gb = detect_total_ram_gb()
@@ -89,9 +89,9 @@ class Config:
         if max_vram:
             try:
                 Config._max_vram_limit = float(max_vram)
-                console.print(f"[dim]✓ User VRAM limit applied: {Config._max_vram_limit:.1f}GB[/dim]")
+                console.print(f"[dim]User VRAM limit applied: {Config._max_vram_limit:.1f}GB[/dim]")
             except ValueError:
-                console.print(f"[yellow]⚠ Invalid MAX_VRAM_LIMIT value: {max_vram}[/yellow]")
+                console.print(f"[yellow]Invalid MAX_VRAM_LIMIT value: {max_vram}[/yellow]")
 
     def _sync_live_pricing(self):
         live_prices = self.fetch_openrouter_pricing()
@@ -138,7 +138,7 @@ class Config:
             return None
         cfg = dict(cfg)
         try:
-            from core.cli.state import get_model_overrides
+            from core.cli.python_cli.state import get_model_overrides
             overrides = get_model_overrides()
             if worker_id.upper() in overrides:
                 cfg["model"] = overrides[worker_id.upper()]
@@ -161,7 +161,7 @@ class Config:
 
     def list_workers(self) -> list:
         try:
-            from core.cli.state import get_model_overrides, get_prompt_overrides
+            from core.cli.python_cli.state import get_model_overrides, get_prompt_overrides
             model_overrides = get_model_overrides()
             prompt_overrides = get_prompt_overrides()
         except (ImportError, OSError, ValueError, TypeError):
@@ -176,6 +176,7 @@ class Config:
                 "model": model_overrides.get(uid, cfg["model"]),
                 "default_model": cfg["model"],
                 "role": cfg["role"],
+                "reason": cfg.get("reason", ""),
                 "tier": cfg.get("tier", ""),
                 "priority": cfg.get("priority", 0),
                 "temperature": cfg.get("temperature", 0.7),

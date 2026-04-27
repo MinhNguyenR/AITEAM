@@ -63,7 +63,7 @@ def show_free_model_picker(role_key: str | None = None) -> Optional[str]:
     from rich.style import Style
     from rich.table import Table
     from rich.prompt import Prompt
-    from core.cli.chrome.ui import PASTEL_BLUE, PASTEL_CYAN, SOFT_WHITE, console
+    from core.cli.python_cli.chrome.ui import PASTEL_BLUE, PASTEL_CYAN, SOFT_WHITE, console
 
     console.print(f"\n[{PASTEL_CYAN}]Fetching free models from OpenRouter…[/{PASTEL_CYAN}]")
     with console.status(f"[{PASTEL_BLUE}]Loading…[/{PASTEL_BLUE}]"):
@@ -117,7 +117,7 @@ def show_free_model_picker(role_key: str | None = None) -> Optional[str]:
 
 def _apply_free_model_override(role_key: str, model_id: str, console, PASTEL_CYAN: str) -> None:
     """Apply model override for role_key immediately (no confirmation)."""
-    from core.cli.state import set_model_override, get_model_overrides
+    from core.cli.python_cli.state import set_model_override, get_model_overrides
     from core.config import config
 
     original = get_model_overrides().get(role_key) or (config.get_worker(role_key) or {}).get("model", "")

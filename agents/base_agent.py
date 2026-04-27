@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 def _default_prompt_resolver() -> dict:
-    from core.cli.state import get_prompt_overrides
+    from core.cli.python_cli.state import get_prompt_overrides
     return get_prompt_overrides()
 
 
