@@ -1,0 +1,66 @@
+from __future__ import annotations
+
+from typing import Any, Dict
+
+REGISTRY: Dict[str, Dict[str, Any]] = {
+    "WORKER_A": {
+        "model": "deepseek/deepseek-v3.2",
+        "role": "Backend Dev",
+        "reason": "Chuyên trị thuật toán AI (PyTorch), Concurrency (Go) và hệ thống phân tán siêu khó.",
+        "tier": "WORKER",
+        "priority": 3,
+        "max_tokens": 4096,
+        "temperature": 0.2,
+        "top_p": 1.0,
+    },
+    "WORKER_B": {
+        "model": "xiaomi/mimo-v2-flash",
+        "role": "Fullstack Dev",
+        "reason": "Chuyên viết API, UI components và logic nghiệp vụ nhanh, sạch, thực dụng.",
+        "tier": "WORKER",
+        "priority": 3,
+        "max_tokens": 4096,
+        "temperature": 0.2,
+        "top_p": 1.0,
+    },
+    "WORKER_C": {
+        "model": "x-ai/grok-4.1-fast",
+        "role": "UI Dev",
+        "reason": "Chuyên trị đồ họa WebGL/Three.js, Animation phức tạp và các luồng bảo mật cao.",
+        "tier": "WORKER",
+        "priority": 3,
+        "max_tokens": 4096,
+        "temperature": 0.2,
+        "top_p": 1.0,
+    },
+    "WORKER_D": {
+        "model": "deepseek/deepseek-v4-flash",
+        "role": "System Dev",
+        "reason": "Chuyên trị hạ tầng (Terraform, K8s) và điều tra các lỗi logic hệ thống tầng sâu.",
+        "tier": "WORKER",
+        "priority": 3,
+        "max_tokens": 4096,
+        "temperature": 0.2,
+        "top_p": 1.0,
+    },
+    "WORKER_E": {
+        "model": "google/gemma-4-31b-it",
+        "role": "Polymath Dev",
+        "reason": "Chuyên gia đa năng trên mọi lĩnh vực. Tối ưu cực tốt cho GPU Shaders, Concurrency và Deep Learning.",
+        "tier": "WORKER",
+        "priority": 3,
+        "max_tokens": 4096,
+        "temperature": 0.2,
+        "top_p": 1.0,
+    },
+    "EXPLAINER": {
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "role": "AI Explainer",
+        "reason": "Chuyên giải thích các 'trade-offs' thiết kế và giải thích các kết quả của mô hình AI.",
+        "tier": "WORKER",
+        "priority": 3,
+        "max_tokens": 4096,
+        "temperature": 0.2,
+        "top_p": 1.0,
+    },
+}
