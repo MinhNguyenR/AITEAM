@@ -243,6 +243,7 @@ class WorkflowListApp:
         self._shown_file_events:    list            = []
         self._token_warned:         bool            = False
         self._seen_running:         bool            = False
+        self._pipeline_pending:     bool            = False
 
         # Inline modes
         self._post_delete_mode:  bool           = False
@@ -269,13 +270,11 @@ class WorkflowListApp:
 
     # ── content helpers ───────────────────────────────────────────────────────
 
-    def _write(self, markup: str, indent: bool = True) -> None:
-        """Write to history. indent=True adds 3-space prefix (Option A visual)."""
-        prefix = "   " if indent else ""
-        display = prefix + markup if markup and indent else markup
+    def _write(self, markup: str, indent: bool = False) -> None:
+        display = markup
         self._history_raw.append(_r2a(display))
         try:
-            ws.append_stream_line(display)  # persist with indent for replay consistency
+            ws.append_stream_line(display)
         except Exception:
             pass
         if self._app:
@@ -638,18 +637,20 @@ class WorkflowListApp:
             active = str(snap.get("active_step") or "idle")
             if active not in ("idle", "end_failed", "") or snap.get("ambassador_status") == "running":
                 self._seen_running = True
-            if (self._seen_running and snap.get("run_finished")
+                self._pipeline_pending = False
+            if ((self._seen_running or self._pipeline_pending) and snap.get("run_finished")
                     and not snap.get("paused_at_gate")
                     and self._gate_state == _GATE_WAITING):
                 if snap.get("graph_failed"):
-                    self._write("", indent=False)
+                    self._write("")
                     self._write(f"[bold red]✗[/bold red] [bold]Pipeline thất bại[/bold] — {time.strftime('%H:%M:%S')}")
                     self._write(f"[dim]  Dùng log  ·  /agent <task> thử lại  ·  exit để thoát[/dim]")
                     self._set_live("")
                     self._scroll_offset = 0
                 else:
                     self._flush_final(snap)
-                self._seen_running = False  # stay open — user can run another task
+                self._seen_running    = False
+                self._pipeline_pending = False
                 try:
                     ws.set_pipeline_run_finished(False)
                     ws.reset_pipeline_visual()
@@ -864,6 +865,8 @@ class WorkflowListApp:
                 self._last_active_step  = ""
                 self._shown_file_events = []
                 self._gate_state        = _GATE_WAITING
+                self._seen_running      = False
+                self._pipeline_pending  = False
                 try:
                     ws.clear_stream_history()
                 except Exception:
@@ -903,6 +906,7 @@ class WorkflowListApp:
 
     def _handle_ask_inline(self, question: str) -> None:
         self._write("")
+        self._write(f"[dim]you[/dim]")
         self._write(f"[bold #7aa2f7]>>[/bold #7aa2f7] {question}")
         self._ask_thinking = True
         self._set_live(f"[dim]   [#888888]{_SPINNER[self._spin % len(_SPINNER)]}[/#888888] thinking…[/dim]")
@@ -928,9 +932,10 @@ class WorkflowListApp:
                     self._ask_thinking = False
                     self._set_live("")  # clear "thinking..."
                     self._write("")
-                    self._write(f"[bold #9ece6a]Assistant[/bold #9ece6a]")
-                    for chunk in chunks:
-                        self._write(f"   {chunk}")
+                    if chunks:
+                        self._write(f"[bold green]→[/bold green] [bold #9ece6a]assistant[/bold #9ece6a]  {chunks[0]}")
+                        for chunk in chunks[1:]:
+                            self._write(f"   {chunk}")
                     self._scroll_offset = 0
                     if self._app: self._app.invalidate()
 
@@ -1061,7 +1066,7 @@ class WorkflowListApp:
                     ws.set_pipeline_run_finished(False)
                     from core.cli.python_cli.flows.start_flow import start_pipeline_from_tui
                     start_pipeline_from_tui(self._last_task_text, root, "agent")
-                    self._seen_running = True
+                    self._pipeline_pending = True
                 else:
                     self._write(f"[dim]  No previous task — use /agent <task>[/dim]")
             else:
@@ -1361,7 +1366,7 @@ class WorkflowListApp:
 
         self._write("")
         self._write(f"[bold cyan]●[/bold cyan] [bold]Task started[/bold] [agent] — {time.strftime('%H:%M:%S')}")
-        self._write(str(task_text[:200]))
+        self._write(f"  [dim]{task_text[:200]}[/dim]")
 
         ws.reset_pipeline_visual()
         ws.set_pipeline_run_finished(False)
@@ -1369,7 +1374,7 @@ class WorkflowListApp:
         self._shown_file_events = []
         from core.cli.python_cli.flows.start_flow import start_pipeline_from_tui
         start_pipeline_from_tui(task_text, root, task_mode)
-        self._seen_running = True
+        self._pipeline_pending = True
 
     # ── entry point ───────────────────────────────────────────────────────────
 

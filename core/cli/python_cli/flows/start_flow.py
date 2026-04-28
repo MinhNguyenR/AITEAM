@@ -198,6 +198,17 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
         return
 
     def _run() -> None:
+        try:
+            _run_pipeline()
+        except Exception as exc:
+            logger.exception("[start_flow] unexpected error in pipeline thread: %s", exc)
+            try:
+                ws_session.set_pipeline_graph_failed(True)
+                ws_session.set_pipeline_run_finished(True)
+            except Exception:
+                pass
+
+    def _run_pipeline() -> None:
         ws_session.clear_pipeline_stop()
         ws_session.set_pipeline_run_finished(False)
         ws_session.reset_pipeline_visual()
@@ -207,6 +218,7 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
             ambassador = Ambassador()
         except ImportError as exc:
             ws_session.set_pipeline_ambassador_error()
+            ws_session.set_pipeline_graph_failed(True)
             workflow_event("ambassador", "failed", f"import_error: {exc}")
             ws_session.set_pipeline_run_finished(True)
             return
@@ -219,6 +231,7 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
             brief = ambassador.parse(task_text)
         except Exception as exc:
             ws_session.set_pipeline_ambassador_error()
+            ws_session.set_pipeline_graph_failed(True)
             workflow_event("ambassador", "failed", str(exc)[:200])
             ws_session.set_pipeline_run_finished(True)
             return

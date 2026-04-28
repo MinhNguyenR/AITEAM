@@ -16,6 +16,9 @@ _STREAM_BUFFER: str = ""
 _STREAM_UPDATED_AT: float = 0.0
 _LEADER_STREAM_MAX = 48_000
 
+# ── In-memory run_finished flag (eliminates file I/O race with bg thread) ────
+_RUN_FINISHED = threading.Event()  # set = finished, clear = running/idle
+
 
 def request_pipeline_stop() -> None:
     """Signal the background runner thread to stop after current node."""
@@ -104,6 +107,7 @@ def reset_pipeline_visual() -> None:
     NOTE: tui_stream_history is intentionally NOT cleared here.
     Stream history persists across task resets; it only clears on user decline.
     """
+    _RUN_FINISHED.clear()
     now = time.time()
     s = load_session()
     s["workflow_activity_min_ts"] = now
@@ -133,6 +137,8 @@ def reset_pipeline_visual() -> None:
 
 
 def apply_stale_workflow_ui_if_needed(project_root: str) -> None:
+    if _RUN_FINISHED.is_set():
+        return  # pipeline just finished; let TUI tick handle it before resetting
     from core.cli.python_cli.flows.context_flow import find_context_md, is_no_context
 
     ctx = find_context_md(project_root)
@@ -352,6 +358,10 @@ def set_pipeline_graph_failed(failed: bool) -> None:
 
 
 def set_pipeline_run_finished(finished: bool) -> None:
+    if finished:
+        _RUN_FINISHED.set()
+    else:
+        _RUN_FINISHED.clear()
     s = load_session()
     s["pipeline_run_finished"] = finished
     if finished:
@@ -463,7 +473,7 @@ def get_pipeline_snapshot() -> dict[str, Any]:
         "brief_selected_leader":    str(s.get("pipeline_brief_selected_leader") or ""),
         "graph_failed":             bool(s.get("pipeline_graph_failed")),
         "paused_at_gate":           bool(s.get("pipeline_paused_at_gate")),
-        "run_finished":             bool(s.get("pipeline_run_finished")),
+        "run_finished":             _RUN_FINISHED.is_set(),
         "stop_phase":               str(s.get("pipeline_stop_phase") or "idle"),
         "active_step_updated_at":   float(s.get("pipeline_active_step_updated_at") or 0.0),
         "busy_ts":                  float(s.get("pipeline_busy_ts") or 0.0),
