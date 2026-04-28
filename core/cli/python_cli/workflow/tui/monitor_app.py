@@ -623,7 +623,8 @@ class WorkflowMonitorApp:
 
     def _handle_ask_inline(self, question: str) -> None:
         self._write("")
-        self._write(f"[dim]you[/dim]")
+        self._write(f"[bold #7aa2f7]User[/bold #7aa2f7]")
+        self._write(f"[dim]----------------[/dim]")
         self._write(f"[bold #7aa2f7]>>[/bold #7aa2f7] {question}")
         self._ask_thinking = True
         self._set_live(f"[dim]   [#888888]{_SPINNER[self._spin % len(_SPINNER)]}[/#888888] thinking…[/dim]")
@@ -647,10 +648,11 @@ class WorkflowMonitorApp:
                 def _show():
                     self._ask_thinking = False
                     self._set_live("")
-                    if chunks:
-                        self._write(f"[bold green]→[/bold green] [bold #9ece6a]assistant[/bold #9ece6a]  {chunks[0]}")
-                        for chunk in chunks[1:]:
-                            self._write(f"   {chunk}")
+                    self._write("")
+                    self._write(f"[bold #9ece6a]Assistant[/bold #9ece6a]")
+                    self._write(f"[dim]----------------[/dim]")
+                    for chunk in chunks:
+                        self._write(f"[#9ece6a]>>[/#9ece6a] {chunk}")
                     if self._app: self._app.invalidate()
 
                 if self._app:
