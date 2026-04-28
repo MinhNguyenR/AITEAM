@@ -213,6 +213,10 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
         ws_session.set_pipeline_run_finished(False)
         ws_session.reset_pipeline_visual()
 
+        # Local copy avoids Python scoping error: assigning to task_text inside
+        # the clarification block would make Python treat it as unbound everywhere.
+        _task = task_text
+
         try:
             from agents.ambassador import Ambassador
             ambassador = Ambassador()
@@ -229,7 +233,7 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
         ws_session.set_pipeline_status_message("Ambassador parsing task…")
 
         try:
-            brief = ambassador.parse(task_text)
+            brief = ambassador.parse(_task)
         except Exception as exc:
             ws_session.set_pipeline_ambassador_error()
             ws_session.set_pipeline_graph_failed(True)
@@ -256,10 +260,9 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
         settings = get_cli_settings()
 
         # ── Phase 4: Clarification gate ───────────────────────────────────────
-        # If task is ambiguous, pause and show UI before running leader.
-        if _is_ambiguous_task(task_text):
+        if _is_ambiguous_task(_task):
             try:
-                q, opts = _generate_clarification_qa(task_text, brief)
+                q, opts = _generate_clarification_qa(_task, brief)
                 ws_session.set_clarification(q, opts)
                 workflow_event("clarification", "pending", f"question={q[:80]}")
 
@@ -276,7 +279,7 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
                 ws_session.clear_clarification()
 
                 if answer and answer != "__skip__":
-                    task_text = f"{task_text}\n\nClarification from user: {answer}"
+                    _task = f"{_task}\n\nClarification from user: {answer}"
                     workflow_event("clarification", "answered", answer[:100])
                 else:
                     workflow_event("clarification", "skipped", "user skipped or timed out")
@@ -285,15 +288,15 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
                 ws_session.clear_clarification()
         # ─────────────────────────────────────────────────────────────────────
 
-        write_task_state_json(brief, task_text, project_root, source_node="ambassador")
+        write_task_state_json(brief, _task, project_root, source_node="ambassador")
         try:
             from utils import tracker as _tr
-            _tr.append_cli_batch("agent", task_text[:220])
+            _tr.append_cli_batch("agent", _task[:220])
         except (ImportError, OSError, ValueError):
             pass
 
         try:
-            run_agent_graph(brief, task_text, project_root, settings, inline_progress=False)
+            run_agent_graph(brief, _task, project_root, settings, inline_progress=False)
         except Exception as e:
             logger.exception("[start_flow] pipeline run aborted: %s", e)
             try:
