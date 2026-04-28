@@ -174,12 +174,12 @@ def run_agent_graph(
             workflow_event("runner", "interrupted", "KeyboardInterrupt")
             ws.set_pipeline_status_message("Dung pipeline (Ctrl+C)")
             return "failed"
-        except (RuntimeError, ValueError, OSError, KeyError, TypeError):
+        except Exception:
             logger.exception("graph.stream failed")
             ws.set_pipeline_graph_failed(True)
             ws.update_workflow_node_status("runner", "error", "graph.stream failed")
             workflow_event("runner", "graph_error", "graph.stream failed")
-            ws.set_pipeline_status_message("Loi pipeline - xem CLI log")
+            ws.set_pipeline_status_message("Loi pipeline - xem log")
             return "failed"
 
         snap = graph.get_state(config)

@@ -219,6 +219,7 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
         except ImportError as exc:
             ws_session.set_pipeline_ambassador_error()
             ws_session.set_pipeline_graph_failed(True)
+            ws_session.set_pipeline_status_message(f"ImportError: {str(exc)[:150]}")
             workflow_event("ambassador", "failed", f"import_error: {exc}")
             ws_session.set_pipeline_run_finished(True)
             return
@@ -232,6 +233,7 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
         except Exception as exc:
             ws_session.set_pipeline_ambassador_error()
             ws_session.set_pipeline_graph_failed(True)
+            ws_session.set_pipeline_status_message(f"Ambassador lỗi: {str(exc)[:150]}")
             workflow_event("ambassador", "failed", str(exc)[:200])
             ws_session.set_pipeline_run_finished(True)
             return

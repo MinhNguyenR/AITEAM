@@ -97,16 +97,20 @@ class _HistoryControl(UIControl):
         self._app = app
 
     def create_content(self, width: int, height: int) -> UIContent:
-        raw_lines = self._app._get_all_lines()
+        if self._app._log_mode:
+            raw_lines = self._app._log_lines
+            offset = self._app._log_scroll
+        else:
+            raw_lines = self._app._get_all_lines()
+            offset = self._app._scroll_offset
         display_lines = []
         for ansi_str in raw_lines:
             parts = ansi_str.rstrip("\n").split("\n")
             for part in parts:
                 display_lines.append(to_formatted_text(ANSI(part)))
         n = len(display_lines)
-        offset = self._app._scroll_offset
         cursor_y = max(0, n - 1 - offset) if n > 0 else 0
-        _d = display_lines  # local ref for closure safety
+        _d = display_lines
 
         def get_line(i: int) -> list:
             return _d[i] if 0 <= i < len(_d) else []
@@ -121,15 +125,26 @@ class _HistoryControl(UIControl):
         return False
 
     def mouse_handler(self, mouse_event: MouseEvent):
-        n = len(self._app._get_all_lines())
-        if mouse_event.event_type == MouseEventType.SCROLL_UP:
-            self._app._scroll_offset = min(self._app._scroll_offset + 3, max(0, n - 1))
-            if self._app._app: self._app._app.invalidate()
-            return None
-        elif mouse_event.event_type == MouseEventType.SCROLL_DOWN:
-            self._app._scroll_offset = max(0, self._app._scroll_offset - 3)
-            if self._app._app: self._app._app.invalidate()
-            return None
+        if self._app._log_mode:
+            n = len(self._app._log_lines)
+            if mouse_event.event_type == MouseEventType.SCROLL_UP:
+                self._app._log_scroll = min(self._app._log_scroll + 3, max(0, n - 1))
+                if self._app._app: self._app._app.invalidate()
+                return None
+            elif mouse_event.event_type == MouseEventType.SCROLL_DOWN:
+                self._app._log_scroll = max(0, self._app._log_scroll - 3)
+                if self._app._app: self._app._app.invalidate()
+                return None
+        else:
+            n = len(self._app._get_all_lines())
+            if mouse_event.event_type == MouseEventType.SCROLL_UP:
+                self._app._scroll_offset = min(self._app._scroll_offset + 3, max(0, n - 1))
+                if self._app._app: self._app._app.invalidate()
+                return None
+            elif mouse_event.event_type == MouseEventType.SCROLL_DOWN:
+                self._app._scroll_offset = max(0, self._app._scroll_offset - 3)
+                if self._app._app: self._app._app.invalidate()
+                return None
         return NotImplemented
 
 
@@ -180,6 +195,12 @@ class WorkflowMonitorApp:
         self._clarif_data:       dict           = {}
 
         self._scroll_offset: int = 0  # 0=bottom
+
+        # Log-view state (full-screen overlay)
+        self._log_mode:   bool      = False
+        self._log_lines:  list[str] = []
+        self._log_scroll: int       = 0
+
         self._cmd_q: queue.Queue = queue.Queue()
         self._app:   Optional[Application] = None
 
@@ -222,11 +243,16 @@ class WorkflowMonitorApp:
     # ── layout ────────────────────────────────────────────────────────────────
 
     def _build_app(self) -> Application:
+        _log_hint_ansi  = _r2a("[bold]Activity Log[/bold]  [dim]↑↓ scroll  ·  Esc/q to return[/dim]")
+        _log_hints_ansi = _r2a("[dim]↑↓ PageUp/Down scroll  ·  Esc/q close log[/dim]")
+
         def _hint_text():
+            if self._log_mode:
+                return to_formatted_text(ANSI(_log_hint_ansi))
             return to_formatted_text(ANSI(self._hint_raw or ""))
 
         def _pipe_text():
-            return to_formatted_text(ANSI(self._pipe_raw or ""))
+            return to_formatted_text(ANSI("" if self._log_mode else (self._pipe_raw or "")))
 
         hint_win = Window(content=FormattedTextControl(_hint_text, focusable=False), height=1)
         pipe_win = Window(content=FormattedTextControl(_pipe_text, focusable=False), height=2)
@@ -236,10 +262,14 @@ class WorkflowMonitorApp:
 
         # Commands hint bar
         _hints_ansi = _r2a(f"[dim]{_CMD_HINT}[/dim]")
+
+        def _hints_text():
+            if self._log_mode:
+                return to_formatted_text(ANSI(_log_hints_ansi))
+            return to_formatted_text(ANSI(_hints_ansi))
+
         hints_win = Window(
-            content=FormattedTextControl(
-                lambda: to_formatted_text(ANSI(_hints_ansi)), focusable=False
-            ),
+            content=FormattedTextControl(_hints_text, focusable=False),
             height=1,
         )
 
@@ -274,50 +304,82 @@ class WorkflowMonitorApp:
 
         @kb.add("c-c")
         def _ctrl_c(event):
+            if self._log_mode:
+                self._close_log()
+                return
             snap = ws.get_pipeline_snapshot()
             if str(snap.get("active_step") or "idle") not in ("idle", "end_failed"):
                 self._ask_exit_inline()
             else:
                 event.app.exit()
 
+        @kb.add("escape", eager=True)
+        def _escape(event):
+            if self._log_mode:
+                self._close_log()
+
         @kb.add("c-up", eager=True)
         def _scroll_up(event):
-            n = len(self._get_all_lines())
-            self._scroll_offset = min(self._scroll_offset + 3, max(0, n - 1))
+            if self._log_mode:
+                n = len(self._log_lines)
+                self._log_scroll = min(self._log_scroll + 3, max(0, n - 1))
+            else:
+                n = len(self._get_all_lines())
+                self._scroll_offset = min(self._scroll_offset + 3, max(0, n - 1))
             event.app.invalidate()
 
         @kb.add("c-down", eager=True)
         def _scroll_down(event):
-            self._scroll_offset = max(0, self._scroll_offset - 3)
+            if self._log_mode:
+                self._log_scroll = max(0, self._log_scroll - 3)
+            else:
+                self._scroll_offset = max(0, self._scroll_offset - 3)
             event.app.invalidate()
 
         @kb.add("c-end", eager=True)
         def _snap_bottom(event):
-            self._scroll_offset = 0
+            if self._log_mode:
+                self._log_scroll = 0
+            else:
+                self._scroll_offset = 0
             event.app.invalidate()
 
         @kb.add("pageup", eager=True)
         def _page_up(event):
-            n = len(self._get_all_lines())
-            self._scroll_offset = min(self._scroll_offset + 10, max(0, n - 1))
+            if self._log_mode:
+                n = len(self._log_lines)
+                self._log_scroll = min(self._log_scroll + 10, max(0, n - 1))
+            else:
+                n = len(self._get_all_lines())
+                self._scroll_offset = min(self._scroll_offset + 10, max(0, n - 1))
             event.app.invalidate()
 
         @kb.add("pagedown", eager=True)
         def _page_down(event):
-            self._scroll_offset = max(0, self._scroll_offset - 10)
+            if self._log_mode:
+                self._log_scroll = max(0, self._log_scroll - 10)
+            else:
+                self._scroll_offset = max(0, self._scroll_offset - 10)
             event.app.invalidate()
 
-        # Mouse scroll wheel — bind via key name used by prompt_toolkit
+        # Mouse scroll wheel
         try:
             @kb.add("<scroll-up>", eager=True)
             def _mouse_up(event):
-                n = len(self._get_all_lines())
-                self._scroll_offset = min(self._scroll_offset + 3, max(0, n - 1))
+                if self._log_mode:
+                    n = len(self._log_lines)
+                    self._log_scroll = min(self._log_scroll + 3, max(0, n - 1))
+                else:
+                    n = len(self._get_all_lines())
+                    self._scroll_offset = min(self._scroll_offset + 3, max(0, n - 1))
                 event.app.invalidate()
 
             @kb.add("<scroll-down>", eager=True)
             def _mouse_down(event):
-                self._scroll_offset = max(0, self._scroll_offset - 3)
+                if self._log_mode:
+                    self._log_scroll = max(0, self._log_scroll - 3)
+                else:
+                    self._scroll_offset = max(0, self._scroll_offset - 3)
                 event.app.invalidate()
         except Exception:
             pass
@@ -361,7 +423,11 @@ class WorkflowMonitorApp:
                 if snap.get("graph_failed"):
                     self._write("")
                     self._write(f"[bold red]✗[/bold red] [bold]Pipeline thất bại[/bold] — {time.strftime('%H:%M:%S')}")
-                    self._write(f"[dim]  Dùng log  ·  /agent <task> thử lại  ·  exit để thoát[/dim]")
+                    err_msg = snap.get("status_message") or ""
+                    _ok_msgs = {"Dang chay LangGraph pipeline...", "Ambassador parsing task…", "Pipeline hoan tat", ""}
+                    if err_msg and err_msg not in _ok_msgs:
+                        self._write(f"[dim red]  {err_msg[:160]}[/dim red]")
+                    self._write(f"[dim]  Dùng [bold]log[/bold]  ·  /agent <task> thử lại  ·  exit để thoát[/dim]")
                     self._set_live("")
                     self._scroll_offset = 0
                 else:
@@ -671,11 +737,47 @@ class WorkflowMonitorApp:
 
         threading.Thread(target=_run, daemon=True).start()
 
+    # ── log view ──────────────────────────────────────────────────────────────
+
+    def _open_log(self) -> None:
+        try:
+            from ..runtime.activity_log import format_activity_lines, list_recent_activity
+            lines_raw: list[str] = []
+            lines_raw.append(_r2a("[bold]── activity log ───────────────────────────────────[/bold]"))
+            records = list_recent_activity(limit=300)
+            fmt_lines = format_activity_lines(records, "")
+            if not fmt_lines:
+                lines_raw.append(_r2a("[dim]  (no activity logged yet)[/dim]"))
+            else:
+                for line in fmt_lines:
+                    lines_raw.append(_r2a(line))
+            lines_raw.append(_r2a("[dim]──────────────────────────────────────────────────[/dim]"))
+            lines_raw.append(_r2a("[dim]  Esc / q to go back[/dim]"))
+            self._log_lines  = lines_raw
+            self._log_scroll = 0
+            self._log_mode   = True
+            if self._app:
+                self._app.invalidate()
+        except Exception as e:
+            self._write(f"[dim]  (log error: {e})[/dim]")
+
+    def _close_log(self) -> None:
+        self._log_mode  = False
+        self._log_lines = []
+        if self._app:
+            self._app.invalidate()
+
     # ── command handler ───────────────────────────────────────────────────────
 
     def _handle_cmd(self, raw: str) -> None:
         raw  = (raw or "").strip()
         root = _project_root_default()
+
+        # Log-view exit
+        if self._log_mode:
+            if raw.lower() in ("q", "quit", "close", "back", "exit", ""):
+                self._close_log()
+            return
 
         if self._task_mode_pending is not None:
             mode = self._task_mode_pending
@@ -778,15 +880,7 @@ class WorkflowMonitorApp:
             return
 
         if cmd == "log":
-            self._write("")
-            self._write(f"[dim]── activity log ──[/dim]")
-            try:
-                from ..runtime.activity_log import format_activity_lines, list_recent_activity
-                lines = format_activity_lines(list_recent_activity(limit=50, min_ts=_activity_min_ts_kw()), "")
-                for line in lines[-20:]:
-                    self._write(f"[dim]{line}[/dim]")
-            except Exception as e:
-                self._write(f"[dim]  (log error: {e})[/dim]")
+            self._open_log()
             return
 
         if cmd == "check":
