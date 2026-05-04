@@ -1,4 +1,4 @@
-"""Tests for core/cli/state.py — settings, context state, overrides."""
+"""Tests for core/cli/python_cli/state.py — settings, context state, overrides."""
 import json
 import threading
 from pathlib import Path
@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-import core.cli.state as state_mod
+import core.cli.python_cli.shell.state as state_mod
 
 
 def _reset_settings_cache():

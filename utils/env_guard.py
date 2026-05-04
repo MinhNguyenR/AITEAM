@@ -8,6 +8,7 @@ import re
 import stat
 from pathlib import Path
 
+from core.config.constants import AI_TEAM_HOME
 from utils.file_manager import get_cache_root
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ def _dotenv_paths(project_root: Path) -> list[Path]:
         p = project_root / name
         if p.is_file():
             out.append(p)
-    home_env = Path.home() / ".ai-team" / ".env"
+    home_env = AI_TEAM_HOME / ".env"
     if home_env.is_file():
         out.append(home_env)
     return out
@@ -48,6 +49,8 @@ def redact_for_display(text: str) -> str:
     s = re.sub(r"\bsk-or-v1-[a-zA-Z0-9_-]{20,}\b", "sk-or-v1-***REDACTED***", text)
     s = re.sub(r"\bsk-[a-zA-Z0-9]{20,}\b", "sk-***REDACTED***", s)
     s = re.sub(r"\bAI_TEAM_VAULT_KEY\s*=\s*\S+", "AI_TEAM_VAULT_KEY=***REDACTED***", s)
+    s = re.sub(r"(?i)(password|secret|token|api[_-]?key)\s*[=:]\s*\S+", r"\1=***REDACTED***", s)
+    s = re.sub(r"\b[A-Za-z0-9_\-]{40,}\b", "***REDACTED***", s)
     return s
 
 
@@ -57,7 +60,7 @@ def find_active_env_path(project_root: str | Path | None = None) -> Path | None:
     candidate = root / ".env"
     if candidate.is_file():
         return candidate
-    home_env = Path.home() / ".ai-team" / ".env"
+    home_env = AI_TEAM_HOME / ".env"
     if home_env.is_file():
         return home_env
     return None
@@ -69,7 +72,7 @@ def run_startup_checks(project_root: str | Path | None = None) -> None:
     # Project-root .env takes priority: remove non-root duplicates
     root_env = root / ".env"
     if root_env.is_file():
-        home_env = Path.home() / ".ai-team" / ".env"
+        home_env = AI_TEAM_HOME / ".env"
         if home_env.is_file():
             try:
                 home_env.unlink()

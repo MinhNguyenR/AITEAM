@@ -1,6 +1,5 @@
-"""Python implementation of the aiteam CLI (Rich / Textual / prompt-toolkit).
+"""Python implementation of the aiteam CLI (Rich / Textual / prompt-toolkit)."""
 
-Other language runtimes may live as sibling packages beside this one.
-"""
+from core.cli.python_cli.shell import prompt as cli_prompt
 
-__all__: list[str] = []
+__all__ = ["cli_prompt"]

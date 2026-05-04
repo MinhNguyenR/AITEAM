@@ -12,6 +12,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.7,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
     "DEEP_TEST_AGENT": {
         "model": "deepseek/deepseek-v4-flash",
@@ -22,5 +23,6 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.7,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
 }

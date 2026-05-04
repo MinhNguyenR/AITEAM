@@ -77,7 +77,7 @@ class Ambassador(BaseAgent):
     @staticmethod
     def _classify_tier_fallback(text: str) -> str:
         """
-        Rule-based fallback classification (4 tiers).
+        Rule-based fallback classification (3 tiers).
         Used when Ambassador API is unavailable (rate limit, timeout, etc).
         Supports both English and Vietnamese keywords.
         """
@@ -93,16 +93,21 @@ class Ambassador(BaseAgent):
         if any(kw in t for kw in hard_kw):
             return "HARD"
 
-        # EXPERT: Complex system design, multi-file architecture
-        expert_kw = (
+        # HARD: system architecture, complex multi-file design, or hardware-bound work
+        hard_design_kw = (
+            "architect", "kiến trúc sư", "system architect", "design the system",
+            "design system", "design architecture", "technical lead",
+            "tech lead", "platform design", "infrastructure design",
+            "scalability design", "high-level design", "hld",
+            "solution architect", "enterprise architecture",
             "system design", "architecture", "distributed", "microservice",
             "theorem", "proof", "numerical", "statistical",
             "backpropagation", "loss function", "convergence",
             "derive", "prove", "thiết kế hệ thống", "kiến trúc",
             "multi-agent", "orchestrat", "pipeline phức",
         )
-        if any(kw in t for kw in expert_kw):
-            return "EXPERT"
+        if any(kw in t for kw in hard_design_kw):
+            return "HARD"
 
         # MEDIUM: Feature implementation, AI/ML tasks, CRUD, web
         medium_kw = (
@@ -164,6 +169,15 @@ class Ambassador(BaseAgent):
             evt["cost_usd"] = compute_cost_usd(evt)
             append_usage_log(evt)
             self.last_usage_event = evt
+            try:
+                from utils.logger import workflow_event as _wfe
+                _wfe("ambassador", "usage",
+                     f"model={self.model_name} prompt_tokens={p_tok} completion_tokens={c_tok}")
+                from core.cli.python_cli.workflow.runtime import session as _ws
+                _ws.set_stream_prompt_tokens(p_tok)
+                _ws.set_stream_completion_tokens(c_tok)
+            except Exception:
+                pass
         content = resp.choices[0].message.content
         if not content:
             raise ValueError("API returned empty content")
@@ -174,8 +188,8 @@ class Ambassador(BaseAgent):
         """Apply CUDA and complexity upgrade rules to the initial tier."""
         if is_cuda:
             return "HARD"
-        if complexity > 0.8 and not is_hardware_bound:
-            return "EXPERT"
+        if complexity > 0.8:
+            return "HARD"
         return tier
 
     def _build_delta_brief(
@@ -197,6 +211,7 @@ class Ambassador(BaseAgent):
             tier=tier,
             target_model=config.get_model_for_tier(tier),
             selected_leader=selected_leader_for_tier(tier),
+            intent=llm.get("intent", "agent"),
             is_cuda_required=is_cuda,
             estimated_vram_usage=llm.get("estimated_vram_usage") or vram,
             is_hardware_bound=is_hw,
@@ -210,7 +225,7 @@ class Ambassador(BaseAgent):
         tier = self._classify_tier_fallback(user_input)
         is_cuda = bool(re.search(r"cuda|gpu|kernel", user_input, re.IGNORECASE))
         is_hw = bool(re.search(r"vram|memory|rtx|hardware", user_input, re.IGNORECASE))
-        complexity = {"LOW": 0.3, "MEDIUM": 0.6, "EXPERT": 0.85, "HARD": 0.95}.get(tier, 0.5)
+        complexity = {"LOW": 0.3, "MEDIUM": 0.6, "HARD": 0.9}.get(tier, 0.5)
         tier = self._apply_tier_upgrade_rules(tier, is_cuda, complexity, is_hw)
         return DeltaBrief(
             original_prompt=user_input,
@@ -233,12 +248,37 @@ class Ambassador(BaseAgent):
         user_input = validate_user_prompt(user_input)
         vram = self._extract_vram(user_input)
         lang = self._detect_language(user_input)
+
+        # Push initial line so TUI shows feedback during the API call
+        try:
+            from core.cli.python_cli.workflow.runtime import session as _ws
+            _ws.clear_leader_stream_buffer()
+            _ws.append_leader_stream_chunk(f"Analyzing: {user_input[:120]}…")
+        except Exception:
+            pass
+
         try:
             llm = self._call_parse_api(user_input)
             brief = self._build_delta_brief(user_input, llm, vram, lang)
         except (OSError, RuntimeError, ValueError, TypeError, json.JSONDecodeError) as e:
             logger.warning("[Ambassador] API error: %s — using fallback", e)
             brief = self._build_fallback_delta_brief(user_input, vram, lang)
+
+        # Replace stream buffer with state.json summary after API completes
+        try:
+            from core.cli.python_cli.workflow.runtime import session as _ws
+            _ws.clear_leader_stream_buffer()
+            _lines = [
+                f"tier: {brief.tier}",
+                f"model: {brief.target_model}",
+                f"leader: {brief.selected_leader}",
+                f"summary: {brief.summary[:180]}",
+                f"language: {brief.language_detected}  complexity: {brief.complexity_score:.2f}",
+            ]
+            _ws.append_leader_stream_chunk("\n".join(_lines))
+        except Exception:
+            pass
+
         try:
             from utils.graphrag_utils import try_ingest_prompt_doc
             try_ingest_prompt_doc(
@@ -265,8 +305,7 @@ class Ambassador(BaseAgent):
             "description": {
                 "LOW": "Q&A, explanation, docs, small fixes",
                 "MEDIUM": "Feature writing, CRUD, web logic",
-                "EXPERT": "Complex logic, math, optimization, multi-step reasoning",
-                "HARD": "System architecture, CUDA, kernel, hardware-bound",
+                "HARD": "System architecture, high-complexity reasoning, CUDA, kernel, or hardware-bound work",
             }.get(tier, ""),
         }
 
@@ -274,8 +313,8 @@ class Ambassador(BaseAgent):
     def execute(self, task: str, **kwargs) -> str:
         """
         Main execution logic for Ambassador:
-        1. Parse user input → DeltaBrief (with 4-tier classification)
-        2. Apply auto-upgrade rules (CUDA → HARD, high complexity → EXPERT)
+        1. Parse user input → DeltaBrief (with 3-tier classification)
+        2. Apply auto-upgrade rules (CUDA or high complexity → HARD)
         3. Return JSON routing decision for orchestrator
         """
         # Parse input using existing parse() method
@@ -284,8 +323,8 @@ class Ambassador(BaseAgent):
         # Get selected_leader from DeltaBrief (already computed in parse)
         selected_route = brief.selected_leader
 
-        # Determine escalation (only for EXPERT tier)
-        is_escalated = (brief.tier == "EXPERT")
+        # Determine escalation (only for HARD tier)
+        is_escalated = (brief.tier == "HARD")
         
         # Build scope (file patterns from language detection)
         scope = []

@@ -1,10 +1,10 @@
-"""Tests for core/cli/workflow/runtime/session_store.py — JSON file I/O."""
+"""Tests for core/cli/python_cli/workflow/runtime/session_store.py — JSON file I/O."""
 import json
 import threading
 from pathlib import Path
 from unittest.mock import patch
 
-from core.cli.workflow.runtime.session_store import load_session_data, save_session_data
+from core.cli.python_cli.workflow.runtime.session.session_store import load_session_data, save_session_data
 
 
 class TestLoadSessionData:

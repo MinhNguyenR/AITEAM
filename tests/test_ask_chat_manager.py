@@ -1,4 +1,4 @@
-"""Tests for core/cli/flows/ask_chat_manager.py — pure string and index helpers."""
+"""Tests for core/cli/python_cli/flows/ask_chat_manager.py — pure string and index helpers."""
 import re
 from unittest.mock import patch, MagicMock
 
@@ -11,13 +11,13 @@ _PATCHES = {
     "rich.box": MagicMock(ROUNDED=MagicMock()),
     "rich.prompt": MagicMock(Prompt=MagicMock()),
     "rich.table": MagicMock(Table=MagicMock()),
-    "core.cli.chrome.ui": MagicMock(
+    "core.cli.python_cli.ui.ui": MagicMock(
         PASTEL_BLUE="blue", clear_screen=MagicMock(), console=_DUMMY_CONSOLE
     ),
-    "core.cli.nav": MagicMock(NavToMain=Exception),
-    "core.cli.state": MagicMock(log_system_action=MagicMock()),
-    "core.cli.flows.ask_history_renderer": MagicMock(_ask_input_with_header=MagicMock()),
-    "core.cli.flows.ask_model_selector": MagicMock(
+    "core.cli.python_cli.shell.nav": MagicMock(NavToMain=Exception),
+    "core.cli.python_cli.shell.state": MagicMock(log_system_action=MagicMock()),
+    "core.cli.python_cli.features.ask.history_renderer": MagicMock(_ask_input_with_header=MagicMock()),
+    "core.cli.python_cli.features.ask.model_selector": MagicMock(
         _chat_model_settings=MagicMock(return_value=("gpt-4", 2048, 0.7, 1.0))
     ),
 }
@@ -26,7 +26,7 @@ import sys
 for mod, mock in _PATCHES.items():
     sys.modules.setdefault(mod, mock)
 
-from core.cli.flows.ask_chat_manager import (
+from core.cli.python_cli.features.ask.chat_manager import (
     _is_temp_chat_name,
     _new_chat_name,
     _parse_index_list,

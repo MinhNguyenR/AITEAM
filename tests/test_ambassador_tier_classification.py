@@ -4,7 +4,7 @@ from agents.ambassador import Ambassador
 
 
 class TestClassifyTierFallback:
-    """Full matrix of _classify_tier_fallback across 4 tiers."""
+    """Full matrix of _classify_tier_fallback across 3 tiers."""
 
     # --- HARD ---
     @pytest.mark.parametrize("prompt", [
@@ -17,7 +17,7 @@ class TestClassifyTierFallback:
     def test_hard_tier(self, prompt):
         assert Ambassador._classify_tier_fallback(prompt) == "HARD"
 
-    # --- EXPERT ---
+    # --- HARD (architecture / very complex reasoning) ---
     @pytest.mark.parametrize("prompt", [
         "Design a distributed microservice architecture",
         "Prove the theorem for convergence of gradient descent",
@@ -25,8 +25,8 @@ class TestClassifyTierFallback:
         "Thiết kế hệ thống phân tán với kiến trúc microservice",
         "Derive the backpropagation equations for LSTM",
     ])
-    def test_expert_tier(self, prompt):
-        assert Ambassador._classify_tier_fallback(prompt) == "EXPERT"
+    def test_complex_design_goes_to_hard(self, prompt):
+        assert Ambassador._classify_tier_fallback(prompt) == "HARD"
 
     # --- MEDIUM ---
     @pytest.mark.parametrize("prompt", [
@@ -93,13 +93,13 @@ class TestApplyTierUpgradeRules:
         result = Ambassador._apply_tier_upgrade_rules("LOW", is_cuda=True, complexity=0.1, is_hardware_bound=False)
         assert result == "HARD"
 
-    def test_high_complexity_non_hw_becomes_expert(self):
+    def test_high_complexity_becomes_hard(self):
         result = Ambassador._apply_tier_upgrade_rules("MEDIUM", is_cuda=False, complexity=0.9, is_hardware_bound=False)
-        assert result == "EXPERT"
+        assert result == "HARD"
 
-    def test_high_complexity_hw_stays_medium(self):
+    def test_high_complexity_hw_also_becomes_hard(self):
         result = Ambassador._apply_tier_upgrade_rules("MEDIUM", is_cuda=False, complexity=0.9, is_hardware_bound=True)
-        assert result == "MEDIUM"
+        assert result == "HARD"
 
     def test_low_complexity_stays(self):
         result = Ambassador._apply_tier_upgrade_rules("LOW", is_cuda=False, complexity=0.3, is_hardware_bound=False)

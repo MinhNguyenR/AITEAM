@@ -1,6 +1,6 @@
 """Resilient JSON parsing utilities for LLM outputs.
 
-Stdlib-only — no imports from agents or core.cli.
+Stdlib-only — no imports from agents or core.cli.python_cli.
 """
 
 from __future__ import annotations

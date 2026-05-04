@@ -56,7 +56,7 @@ def _make_leader(tmp_path) -> BaseLeader:
     class _ConcreteLeader(BaseLeader):
         def format_output(self, r): return r
 
-    with patch("agents.base_agent.OpenAI"):
+    with patch("agents.base_agent.make_openai_client"):
         leader = _ConcreteLeader(
             agent_name="LeaderTest",
             model_name="test-model",
@@ -104,7 +104,7 @@ class TestLeaderFormatOutput:
     """LeaderMed.format_output strips fences and leading noise."""
     def _make_leader_med(self, tmp_path):
         from agents.leader import LeaderMed
-        with patch("agents.base_agent.OpenAI"), \
+        with patch("agents.base_agent.make_openai_client"), \
              patch("agents.leader.config") as mc:
             mc.get_worker.return_value = {
                 "model": "test", "max_tokens": 512, "temperature": 0.5

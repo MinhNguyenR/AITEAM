@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import shutil
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from core.config.constants import AI_TEAM_HOME
 from core.storage.ask_chat_store import get_ask_chat_store
 from utils.file_manager import ensure_ask_data_dir
 
 _ASK_DATA_DIR = ensure_ask_data_dir()
-_LEGACY_JSON = Path.home() / ".ai-team" / "ask_chats.json"
-_LEGACY_DB = Path.home() / ".ai-team" / "ask-data" / "ask_history.db"
+_LEGACY_JSON = AI_TEAM_HOME / "ask_chats.json"
+_LEGACY_DB = AI_TEAM_HOME / "ask-data" / "ask_history.db"
 _NEW_DB = _ASK_DATA_DIR / "ask_history.db"
 if _LEGACY_DB.is_file() and not _NEW_DB.exists():
     _ASK_DATA_DIR.mkdir(parents=True, exist_ok=True)

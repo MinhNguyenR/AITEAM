@@ -7,6 +7,6 @@ from rich.panel import Panel
 
 
 def dashboard_panel(title: str, body: Any, *, border_style: str = "#6495ED") -> None:
-    from core.cli.chrome.ui import console
+    from core.cli.python_cli.ui.ui import console
 
     console.print(Panel(body, title=f"[bold]{title}[/bold]", border_style=border_style, box=ROUNDED))

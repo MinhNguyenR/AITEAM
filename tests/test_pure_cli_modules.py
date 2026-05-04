@@ -6,14 +6,14 @@ import pytest
 # MagicMocks for these modules via sys.modules.setdefault. Force-remove them
 # so we get the real implementations here.
 for _m in [
-    "core.cli.nav",
-    "core.cli.workflow.tui.display_policy",
-    "core.cli.workflow.runtime.pipeline_markdown",
+    "core.cli.python_cli.shell.nav",
+    "core.cli.python_cli.workflow.tui.shared.display_policy",
+    "core.cli.python_cli.workflow.runtime.present.pipeline_markdown",
 ]:
     sys.modules.pop(_m, None)
 
 # ── command_registry ──────────────────────────────────────────────────────────
-from core.cli.command_registry import (
+from core.cli.python_cli.shell.command_registry import (
     MAIN_MENU_BY_NUMBER,
     MAIN_MENU_VALID_CHOICES,
     MENU_PALETTE_ROWS,
@@ -53,7 +53,7 @@ class TestCommandRegistry:
 
 
 # ── nav ───────────────────────────────────────────────────────────────────────
-from core.cli.nav import NavBack, NavToMain, is_nav_back, is_nav_exit, raise_if_global_nav
+from core.cli.python_cli.shell.nav import NavBack, NavToMain, is_nav_back, is_nav_exit, raise_if_global_nav
 
 
 class TestNav:
@@ -89,7 +89,7 @@ class TestNav:
 
 
 # ── display_policy ────────────────────────────────────────────────────────────
-from core.cli.workflow.tui.display_policy import WorkflowDisplayPolicy, resolve_display_policy
+from core.cli.python_cli.workflow.tui.shared.display_policy import WorkflowDisplayPolicy, resolve_display_policy
 
 
 class TestDisplayPolicy:
@@ -124,8 +124,8 @@ class TestRoutingMap:
     def test_medium_tier(self):
         assert pipeline_registry_key_for_tier("MEDIUM") == "LEADER_MEDIUM"
 
-    def test_expert_tier(self):
-        assert pipeline_registry_key_for_tier("EXPERT") == "EXPERT"
+    def test_expert_tier_defaults_to_medium(self):
+        assert pipeline_registry_key_for_tier("EXPERT") == "LEADER_MEDIUM"
 
     def test_hard_tier(self):
         assert pipeline_registry_key_for_tier("HARD") == "LEADER_HIGH"
@@ -136,8 +136,8 @@ class TestRoutingMap:
     def test_case_insensitive(self):
         assert pipeline_registry_key_for_tier("low") == pipeline_registry_key_for_tier("LOW")
 
-    def test_selected_leader_expert(self):
-        assert selected_leader_for_tier("EXPERT") == "EXPERT_MIMO"
+    def test_selected_leader_expert_defaults_to_medium(self):
+        assert selected_leader_for_tier("EXPERT") == "LEADER_MEDIUM"
 
     def test_selected_leader_hard(self):
         assert selected_leader_for_tier("HARD") == "LEADER_HIGH"
@@ -147,7 +147,7 @@ class TestRoutingMap:
 
 
 # ── pipeline_markdown ─────────────────────────────────────────────────────────
-from core.cli.workflow.runtime.pipeline_markdown import SPINNER, build_pipeline_markup
+from core.cli.python_cli.workflow.runtime.present.pipeline_markdown import SPINNER, build_pipeline_markup
 
 
 class TestPipelineMarkdown:
@@ -158,32 +158,32 @@ class TestPipelineMarkdown:
         assert len(SPINNER) > 0
 
     def test_glyph_done_contains_green(self):
-        from core.cli.workflow.runtime.pipeline_markdown import _glyph
+        from core.cli.python_cli.workflow.runtime.present.pipeline_markdown import _glyph
         result = _glyph("done", "|", True)
         assert "green" in result
 
     def test_glyph_error_contains_red(self):
-        from core.cli.workflow.runtime.pipeline_markdown import _glyph
+        from core.cli.python_cli.workflow.runtime.present.pipeline_markdown import _glyph
         result = _glyph("error", "|", False)
         assert "red" in result
 
     def test_glyph_pending(self):
-        from core.cli.workflow.runtime.pipeline_markdown import _glyph
+        from core.cli.python_cli.workflow.runtime.present.pipeline_markdown import _glyph
         result = _glyph("pending", "|", True)
         assert result  # non-empty
 
     def test_glyph_spin(self):
-        from core.cli.workflow.runtime.pipeline_markdown import _glyph
+        from core.cli.python_cli.workflow.runtime.present.pipeline_markdown import _glyph
         result = _glyph("spin", "|", True)
         assert "|" in result
 
     def test_glyph_wait(self):
-        from core.cli.workflow.runtime.pipeline_markdown import _glyph
+        from core.cli.python_cli.workflow.runtime.present.pipeline_markdown import _glyph
         result = _glyph("wait", "|", True)
         assert "*" in result
 
     def test_glyph_unknown(self):
-        from core.cli.workflow.runtime.pipeline_markdown import _glyph
+        from core.cli.python_cli.workflow.runtime.present.pipeline_markdown import _glyph
         result = _glyph("unknown_state", "|", True)
         assert result  # default fallback
 

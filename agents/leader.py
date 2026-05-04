@@ -96,10 +96,22 @@ class BaseLeader(BaseAgent):
         if not state_path.exists():
             raise FileNotFoundError(f"State file not found: {state_path}")
 
+        try:
+            from core.cli.python_cli.workflow.runtime import session as _ws
+            _ws.set_leader_action("reading state.json")
+        except Exception:
+            pass
+
         with open(state_path, "r", encoding="utf-8") as f:
             state_data = json.load(f)
 
         logger.info(f"[{self.agent_name}] Loaded state: {state_path}")
+
+        try:
+            from core.cli.python_cli.workflow.runtime import session as _ws
+            _ws.clear_leader_action()
+        except Exception:
+            pass
 
         user_prompt = self._build_prompt(state_data)
         logger.debug(f"[{self.agent_name}] Prompt size: {len(user_prompt)} chars")
@@ -188,31 +200,30 @@ class BaseLeader(BaseAgent):
         return self.generate_context(path)
 
     def format_output(self, response: str) -> str:
-        """Strip fences, trim noise before first section header."""
+        """Strip fences, trim noise before the H1 title or first section."""
         if not response:
             return ""
-
         response = self._strip_markdown_fences(response)
-
-        markers = (
-            "## 1. DIRECTORY",
-            "## 1.",
-            "# 1.",
-            "## 1 ",
-            "# 1 ",
-        )
+        # Safety: strip any [CLARIFICATION] blocks that leaked into content
+        response = re.sub(r'\[CLARIFICATION\].*?\[/CLARIFICATION\]', '', response, flags=re.DOTALL).strip()
+        if not response:
+            return ""
+        # Prefer H1 title (new plain-text format)
+        h1 = re.search(r"^# .+", response, re.MULTILINE)
+        if h1:
+            return response[h1.start():].strip()
+        # Fallback: old ## 1. format (backward compat)
+        markers = ("## 1. DIRECTORY", "## 1.", "# 1.", "## 1 ", "# 1 ")
         best: Optional[tuple[int, str]] = None
         for marker in markers:
             idx = response.find(marker)
             if idx != -1 and (best is None or idx < best[0]):
                 best = (idx, marker)
         if best:
-            response = response[best[0] :]
-        else:
-            m = re.search(r"^#{1,2}\s*1[\.)]\s*\S", response, re.MULTILINE)
-            if m:
-                response = response[m.start() :]
-
+            return response[best[0]:].strip()
+        m = re.search(r"^#{1,2}\s*1[\.)]\s*\S", response, re.MULTILINE)
+        if m:
+            return response[m.start():].strip()
         return response.strip()
 
     @staticmethod

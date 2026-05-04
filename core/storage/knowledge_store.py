@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from core.config.constants import AI_TEAM_HOME
 from core.storage.knowledge.repository import KnowledgeRepository
 from core.storage.knowledge.sqlite_repository import (
     SqliteKnowledgeRepository,
@@ -22,7 +23,7 @@ def _vault_wrap(compressed: bytes) -> bytes:
 
         base = Path(Config.BASE_DIR)
     except (ImportError, AttributeError):
-        base = Path.home() / ".ai-team"
+        base = AI_TEAM_HOME
     return _vault_wrap_impl(compressed, base)
 
 
@@ -32,7 +33,7 @@ def _vault_unwrap(raw: bytes) -> Optional[bytes]:
 
         base = Path(Config.BASE_DIR)
     except (ImportError, AttributeError):
-        base = Path.home() / ".ai-team"
+        base = AI_TEAM_HOME
     return _vault_unwrap_impl(raw, base)
 
 

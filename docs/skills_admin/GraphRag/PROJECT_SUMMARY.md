@@ -139,25 +139,25 @@
 - `.toml` — 1
 
 ## Largest Files
-- `core\cli\workflow\monitor.py` — 30456 bytes
+- `core\cli\python_cli\workflow\monitor.py` — 30456 bytes
 - `graphrag_standalone\indexer.py` — 27487 bytes
 - `agents\base_agent.py` — 26649 bytes
 - `utils\tracker.py` — 21680 bytes
-- `core\cli\workflow\runner.py` — 20944 bytes
-- `core\cli\workflow\session.py` — 17500 bytes
-- `core\cli\ask_flow.py` — 17099 bytes
+- `core\cli\python_cli\workflow\runner.py` — 20944 bytes
+- `core\cli\python_cli\workflow\session.py` — 17500 bytes
+- `core\cli\python_cli\ask_flow.py` — 17099 bytes
 - `core\prompts.py` — 16114 bytes
 - `core\storage\knowledge_store.py` — 16024 bytes
-- `core\cli\context_flow.py` — 15019 bytes
-- `core\cli\app.py` — 15015 bytes
+- `core\cli\python_cli\context_flow.py` — 15019 bytes
+- `core\cli\python_cli\app.py` — 15015 bytes
 - `agents\ambassador.py` — 14161 bytes
-- `core\cli\change_flow.py` — 13936 bytes
+- `core\cli\python_cli\change_flow.py` — 13936 bytes
 - `README.md` — 12225 bytes
 - `core\dashboard\app.py` — 12067 bytes
 - `agents\expert.py` — 12059 bytes
 - `core\dashboard\render.py` — 10588 bytes
 - `core\storage\ask_chat_store.py` — 10159 bytes
-- `core\cli\start_flow.py` — 9589 bytes
+- `core\cli\python_cli\start_flow.py` — 9589 bytes
 - `PROJECT_MAP.md` — 9455 bytes
 
 ## Important Modules
@@ -180,31 +180,31 @@
 - `agents.tool_curator` → `agents\tool_curator.py`
 - `agents.worker` → `agents\worker.py`
 - `core.__init__` → `core\__init__.py`
-- `core.cli.__init__` → `core\cli\__init__.py`
+- `core.cli.python_cli.__init__` → `core\cli\python_cli\__init__.py`
 
 ## Project Map
 ### core
 Application orchestration, CLI, configuration, dashboard, and storage
 - `core.__init__`
-- `core.cli.__init__`
-- `core.cli.app`
-- `core.cli.ask_flow`
-- `core.cli.change_flow`
-- `core.cli.choice_lists`
-- `core.cli.cli_prompt`
-- `core.cli.command_registry`
-- `core.cli.context_flow`
-- `core.cli.dashboard_flow`
-- `core.cli.help_terminal`
-- `core.cli.helpbox`
-- `core.cli.palette`
-- `core.cli.settings_flow`
-- `core.cli.start_flow`
-- `core.cli.state`
-- `core.cli.ui`
-- `core.cli.workflow.__init__`
-- `core.cli.workflow.activity_log`
-- `core.cli.workflow.checkpointer`
+- `core.cli.python_cli.__init__`
+- `core.cli.python_cli.entrypoints.app`
+- `core.cli.python_cli.ask_flow`
+- `core.cli.python_cli.change_flow`
+- `core.cli.python_cli.shell.choice_lists`
+- `core.cli.python_cli.shell.prompt`
+- `core.cli.python_cli.shell.command_registry`
+- `core.cli.python_cli.context_flow`
+- `core.cli.python_cli.dashboard_flow`
+- `core.cli.python_cli.help_terminal`
+- `core.cli.python_cli.helpbox`
+- `core.cli.python_cli.palette`
+- `core.cli.python_cli.settings_flow`
+- `core.cli.python_cli.start_flow`
+- `core.cli.python_cli.shell.state`
+- `core.cli.python_cli.ui`
+- `core.cli.python_cli.workflow.__init__`
+- `core.cli.python_cli.workflow.activity_log`
+- `core.cli.python_cli.workflow.checkpointer`
 
 ### agents
 Agent roles, routing, team map, and execution helpers
@@ -273,13 +273,13 @@ Self-contained repository graph index used internally for retrieval
 - `LeaderMed` (class) in `agents\leader.py`:243
 - `LeaderHigh` (class) in `agents\leader.py`:261
 - `TeamState` (class) in `agents\teamMap\_team_map.py`:29
-- `WorkflowDisplayPolicy` (class) in `core\cli\workflow\display_policy.py`:7
-- `_project_root_default` (function) in `core\cli\workflow\monitor.py`:30
-- `CheckpointSearchScreen` (class) in `core\cli\workflow\monitor.py`:303
-- `ActivityLogScreen` (class) in `core\cli\workflow\monitor.py`:327
-- `ContextFilePreviewScreen` (class) in `core\cli\workflow\monitor.py`:346
-- `RegeneratePromptScreen` (class) in `core\cli\workflow\monitor.py`:381
-- `ContextReviewScreen` (class) in `core\cli\workflow\monitor.py`:411
-- `WorkflowMonitorApp` (class) in `core\cli\workflow\monitor.py`:492
+- `WorkflowDisplayPolicy` (class) in `core\cli\python_cli\workflow\display_policy.py`:7
+- `_project_root_default` (function) in `core\cli\python_cli\workflow\monitor.py`:30
+- `CheckpointSearchScreen` (class) in `core\cli\python_cli\workflow\monitor.py`:303
+- `ActivityLogScreen` (class) in `core\cli\python_cli\workflow\monitor.py`:327
+- `ContextFilePreviewScreen` (class) in `core\cli\python_cli\workflow\monitor.py`:346
+- `RegeneratePromptScreen` (class) in `core\cli\python_cli\workflow\monitor.py`:381
+- `ContextReviewScreen` (class) in `core\cli\python_cli\workflow\monitor.py`:411
+- `WorkflowMonitorApp` (class) in `core\cli\python_cli\workflow\monitor.py`:492
 - `MEMORYSTATUSEX` (class) in `core\config\hardware.py`:65
 - `ConfigError` (class) in `core\config\service.py`:23

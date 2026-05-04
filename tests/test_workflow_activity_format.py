@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from core.cli.workflow.runtime.activity_log import format_activity_lines
+from core.cli.python_cli.workflow.runtime.persist.activity_log import format_activity_lines
 
 
 def test_format_activity_lines_collapses_immediate_duplicates():

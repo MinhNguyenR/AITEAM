@@ -43,8 +43,9 @@ def chat_completions_create_stream(
     messages: List[Dict[str, Any]],
     max_tokens: int,
     temperature: float,
+    reasoning: Optional[Dict] = None,
 ):
-    return client.chat.completions.create(
+    kwargs: Dict[str, Any] = dict(
         model=model,
         messages=messages,
         max_tokens=max_tokens,
@@ -52,6 +53,38 @@ def chat_completions_create_stream(
         stream=True,
         stream_options={"include_usage": True},
     )
+    if reasoning:
+        kwargs["extra_body"] = {"reasoning": reasoning}
+    return client.chat.completions.create(**kwargs)
+
+
+def _parse_think_tags(text: str, in_think: bool) -> tuple[str, str, bool]:
+    """Split a stream chunk into (main_content, reasoning_content, new_in_think_state).
+
+    Handles <think>...</think> XML tags that DeepSeek R1 / Qwen3 models embed in content.
+    Tags may span multiple chunks; in_think tracks state across calls.
+    """
+    main: list[str] = []
+    think: list[str] = []
+    i = 0
+    while i < len(text):
+        if not in_think:
+            idx = text.find("<think>", i)
+            if idx == -1:
+                main.append(text[i:])
+                break
+            main.append(text[i:idx])
+            in_think = True
+            i = idx + 7  # len("<think>")
+        else:
+            idx = text.find("</think>", i)
+            if idx == -1:
+                think.append(text[i:])
+                break
+            think.append(text[i:idx])
+            in_think = False
+            i = idx + 8  # len("</think>")
+    return "".join(main), "".join(think), in_think
 
 
 def log_usage_event(payload: Dict[str, Any]) -> None:
@@ -158,6 +191,19 @@ class APIClient:
             "action": action,
             "finish_reason": finish_reason,
         })
+        try:
+            from utils.logger import workflow_event as _wfe
+            _role_to_node = {
+                "AMBASSADOR": "ambassador",
+                "LEADER_MEDIUM": "leader_generate",
+                "LEADER_LOW": "leader_generate",
+                "LEADER_HIGH": "leader_generate",
+            }
+            _node = _role_to_node.get(str(self.registry_role_key or "").upper())
+            if _node:
+                _wfe(_node, "usage", f"model={target_model} prompt_tokens={prompt_tok} completion_tokens={completion_tok}")
+        except Exception:
+            pass
 
     def _compute_call_cost(
         self, prompt_tokens: int, completion_tokens: int, model: str
@@ -181,28 +227,141 @@ class APIClient:
         parts: List[str] = []
         usage_prompt = 0
         usage_completion = 0
+        _in_think = False   # state for <think> XML tag parsing across chunks
+        _had_reasoning = False  # True once any reasoning content was seen
+
+        # Import session module once; guard against unavailability (tests, etc.)
+        _ws = None
+        try:
+            from core.cli.python_cli.workflow.runtime import session as _ws_mod
+            _ws = _ws_mod
+        except LookupError:
+            pass
+
+        if _ws:
+            try:
+                _ws.reset_stream_token_counters()
+            except Exception:
+                pass
+
         for chunk in stream:
             u = getattr(chunk, "usage", None)
             if u:
-                usage_prompt = int(getattr(u, "prompt_tokens", usage_prompt) or usage_prompt)
-                usage_completion = int(getattr(u, "completion_tokens", usage_completion) or usage_completion)
+                new_pt = int(getattr(u, "prompt_tokens", 0) or 0)
+                new_ct = int(getattr(u, "completion_tokens", 0) or 0)
+                if new_pt > usage_prompt:
+                    usage_prompt = new_pt
+                    if _ws:
+                        try:
+                            _ws.set_stream_prompt_tokens(new_pt)
+                        except Exception:
+                            pass
+                if new_ct > usage_completion:
+                    usage_completion = new_ct
+                    if _ws:
+                        try:
+                            _ws.set_stream_completion_tokens(new_ct)
+                        except Exception:
+                            pass
             if not chunk.choices:
                 continue
-            delta = getattr(chunk.choices[0].delta, "content", None) or ""
-            if delta:
-                parts.append(delta)
+
+            delta = chunk.choices[0].delta
+
+            # Native reasoning_content field (OpenRouter thinking models: deepseek-r1, etc.)
+            reasoning_native = getattr(delta, "reasoning_content", None) or ""
+            if reasoning_native and _ws:
+                _had_reasoning = True
+                try:
+                    if not _ws.is_reasoning_active():
+                        _ws.set_reasoning_active(True)
+                    _ws.append_reasoning_chunk(reasoning_native)
+                except Exception:
+                    logger.debug("[%s] reasoning_content routing failed", self.agent_name)
+
+            content_delta = getattr(delta, "content", None) or ""
+            if not content_delta:
+                continue
+
+            # Parse <think> XML tags embedded in content stream (DeepSeek R1 / Qwen3 style)
+            main_text, think_text, _in_think = _parse_think_tags(content_delta, _in_think)
+
+            if think_text and _ws:
+                _had_reasoning = True
+                try:
+                    if not _ws.is_reasoning_active():
+                        _ws.set_reasoning_active(True)
+                    _ws.append_reasoning_chunk(think_text)
+                except Exception:
+                    logger.debug("[%s] think-tag routing failed", self.agent_name)
+
+            if main_text:
+                # First main content after reasoning signals thinking is done
+                if _had_reasoning and _ws:
+                    try:
+                        if _ws.is_reasoning_active():
+                            _ws.set_reasoning_active(False)
+                    except Exception:
+                        pass
+                    _had_reasoning = False
+
+                parts.append(main_text)
+                if _ws:
+                    try:
+                        _ws.increment_stream_char_count(len(main_text))
+                    except Exception:
+                        pass
                 if self._stream_chunk_callback is not None:
                     try:
-                        self._stream_chunk_callback(delta)
+                        self._stream_chunk_callback(main_text)
                     except Exception as _cb_err:
                         logger.debug("[%s] Stream callback error: %s", self.agent_name, type(_cb_err).__name__)
-                else:
+                elif _ws:
                     try:
-                        from core.cli.python_cli.workflow.runtime import session as _ws
-                        _ws.append_leader_stream_chunk(delta)
+                        _ws.append_leader_stream_chunk(main_text)
                     except LookupError:
                         logger.debug("[%s] stream monitor not active, chunk dropped", self.agent_name)
-        return "".join(parts).strip(), usage_prompt, usage_completion
+
+        # Ensure reasoning is closed at end of stream
+        if _had_reasoning and _ws:
+            try:
+                _ws.set_reasoning_active(False)
+            except Exception:
+                pass
+
+        full_content = "".join(parts).strip()
+
+        # Detect clarification request from leader:
+        #   [CLARIFICATION]{"question": "...", "options": [...]}[/CLARIFICATION]
+        self._last_clarif_answer: Optional[str] = None
+        if _ws and "[CLARIFICATION]" in full_content:
+            import re as _re, json as _json, time as _time
+            _clarif_re = _re.compile(
+                r'\[CLARIFICATION\]\s*(\{.*?\})\s*\[/CLARIFICATION\]',
+                _re.DOTALL,
+            )
+            for _m in _clarif_re.finditer(full_content):
+                try:
+                    _cdata = _json.loads(_m.group(1))
+                    _q     = _cdata.get("question", "")
+                    _opts  = _cdata.get("options", [])
+                    if _q and _opts:
+                        _ws.set_clarification(_q, _opts)
+                        logger.info("[%s] clarification triggered: %s", self.agent_name, _q[:60])
+                        _deadline = _time.time() + 600
+                        while _ws.is_clarification_pending() and _time.time() < _deadline:
+                            _time.sleep(0.5)
+                        self._last_clarif_answer = _ws.get_clarification_answer() or "__skip__"
+                        _ws.clear_clarification()
+                        break
+                except Exception as _ce:
+                    logger.debug("[%s] clarification parse error: %s", self.agent_name, _ce)
+            # Strip all [CLARIFICATION] blocks from content so they don't land in context.md
+            full_content = _re.sub(
+                r'\[CLARIFICATION\].*?\[/CLARIFICATION\]', '', full_content, flags=_re.DOTALL
+            ).strip()
+
+        return full_content, usage_prompt, usage_completion
 
     def call_api(
         self,
@@ -256,7 +415,7 @@ class APIClient:
 
                 return content
 
-            except (OSError, RuntimeError, ValueError, TypeError) as e:
+            except Exception as e:
                 last_error = e
                 error_str = str(e).lower()
                 if "json" in error_str or "expecting value" in error_str:
@@ -266,6 +425,22 @@ class APIClient:
                 if "429" in error_str or "rate limit" in error_str:
                     wait = _BASE_BACKOFF * (2 ** attempt)
                     logger.warning("[%s] Rate limited — retry %d/%d in %.1fs", self.agent_name, attempt + 1, _MAX_RETRIES, wait)
+                    time.sleep(wait)
+                    continue
+                _net_kw = (
+                    "network connection", "connection lost", "connection reset",
+                    "broken pipe", "socket", "timed out", "timeout", "eof",
+                    "apiconnection", "apierror", "api error", "network error",
+                )
+                _is_net = any(kw in error_str for kw in _net_kw)
+                try:
+                    import openai
+                    _is_net = _is_net or isinstance(e, (openai.APIConnectionError,))
+                except Exception:
+                    pass
+                if _is_net:
+                    wait = min(_BASE_BACKOFF * (2 ** attempt), 30.0)
+                    logger.warning("[%s] Network error — retry %d/%d in %.1fs: %s", self.agent_name, attempt + 1, _MAX_RETRIES, wait, type(e).__name__)
                     time.sleep(wait)
                     continue
                 status = getattr(e, "status_code", getattr(e, "code", None))
@@ -300,8 +475,31 @@ class APIClient:
         self._budget.check()
 
         messages = self._build_messages(user_prompt, system_prompt, default_system)
+
+        # Estimate prompt tokens for UI feedback before OpenRouter sends the final usage chunk
+        try:
+            from core.cli.python_cli.workflow.runtime import session as _ws_mod
+            estimated_pt = sum(len(str(m.get("content", ""))) for m in messages) // 4
+            _ws_mod.set_stream_prompt_tokens(estimated_pt)
+        except Exception:
+            pass
+
+        # Look up reasoning config from model registry
+        _reasoning_cfg: Optional[Dict] = None
+        try:
+            from core.config.registry import get_worker_config
+            _reg = get_worker_config(self.registry_role_key or "")
+            if _reg:
+                _reasoning_cfg = _reg.get("reasoning")
+        except Exception:
+            pass
+
         last_error: Optional[Exception] = None
-        for attempt in range(_MAX_RETRIES):
+        _total_prompt_tok = 0
+        _total_completion_tok = 0
+        _clarif_rounds = 0
+        attempt = 0
+        while attempt < _MAX_RETRIES:
             try:
                 stream = chat_completions_create_stream(
                     self.client,
@@ -309,31 +507,73 @@ class APIClient:
                     messages=messages,
                     max_tokens=max_tokens,
                     temperature=temperature,
+                    reasoning=_reasoning_cfg,
                 )
                 content, usage_prompt, usage_completion = self._aggregate_stream(stream)
+                _total_prompt_tok += usage_prompt
+                _total_completion_tok += usage_completion
+
+                # Clarification re-call: leader asked a question instead of generating content
+                _clarif = getattr(self, '_last_clarif_answer', None)
+                if _clarif is not None and not content and _clarif_rounds < 2:
+                    _clarif_rounds += 1
+                    if _clarif != "__skip__":
+                        messages.append({"role": "assistant", "content": "[clarification requested]"})
+                        messages.append({"role": "user", "content": f"User clarification: {_clarif}\n\nNow generate the full context.md."})
+                    else:
+                        messages.append({"role": "user", "content": "Clarification skipped. Proceed with best assumptions and generate the full context.md now."})
+                    logger.info("[%s] clarification answered (%s) — re-calling for context.md", self.agent_name, _clarif[:40] if _clarif else "skip")
+                    continue  # don't increment attempt
+
                 if not content:
                     last_error = ValueError("stream returned empty content")
                     time.sleep(2 ** attempt)
+                    attempt += 1
                     continue
 
                 self.history.append({"role": "user", "content": user_prompt})
                 self.history.append({"role": "assistant", "content": content})
-                if usage_prompt or usage_completion:
-                    cost = self._compute_call_cost(usage_prompt, usage_completion, model)
+                if _total_prompt_tok or _total_completion_tok:
+                    cost = self._compute_call_cost(_total_prompt_tok, _total_completion_tok, model)
                     self._budget.session_cost += cost
                     self._budget.session_calls += 1
-                    self._log_api_usage(usage_prompt, usage_completion, cost, model, "chat.completions.stream")
+                    self._log_api_usage(_total_prompt_tok, _total_completion_tok, cost, model, "chat.completions.stream")
                 logger.info("[%s] stream done, len=%d", self.agent_name, len(content))
                 return content
-            except (OSError, RuntimeError, ValueError, TypeError) as e:
+            except Exception as e:
                 last_error = e
                 err = str(e).lower()
                 if "429" in err or "rate limit" in err:
                     wait = _BASE_BACKOFF * (2 ** attempt)
                     logger.warning("[%s] stream rate limit — wait %.1fs", self.agent_name, wait)
                     time.sleep(wait)
+                    attempt += 1
                     continue
-                logger.error("[%s] stream API error: %s", self.agent_name, e)
+                # Transient network/protocol errors — retry indefinitely with backoff
+                _network_kw = (
+                    "remote protocol", "incomplete", "reset by peer",
+                    "connection reset", "broken pipe", "connection aborted",
+                    "server disconnected", "sending complete", "iter_raw",
+                    "peer closed", "stream error", "connection error",
+                    "network connection", "connection lost", "network error",
+                    "socket", "timed out", "timeout", "eof",
+                    "apiconnection", "apierror", "api error",
+                )
+                _is_network = any(kw in err for kw in _network_kw)
+                try:
+                    import openai
+                    _is_network = _is_network or isinstance(e, (openai.APIConnectionError, openai.APIStatusError))
+                except Exception:
+                    pass
+                if _is_network:
+                    # Capped backoff: max 30s between retries
+                    wait = min(_BASE_BACKOFF * (2 ** attempt), 30.0)
+                    logger.warning("[%s] network error (attempt %d) — retry in %.1fs: %s",
+                                   self.agent_name, attempt + 1, wait, type(e).__name__)
+                    time.sleep(wait)
+                    attempt += 1
+                    continue
+                logger.error("[%s] stream API error: %s — %s", self.agent_name, type(e).__name__, e)
                 raise
         if last_error:
             raise last_error

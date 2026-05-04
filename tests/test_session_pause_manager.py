@@ -1,7 +1,7 @@
 """Tests for session_pause_manager.py — pause/finalize/interrupt signals."""
 from unittest.mock import patch
 
-import core.cli.workflow.runtime.session_pause_manager as spm
+import core.cli.python_cli.workflow.runtime.session.session_pause_manager as spm
 
 
 def _patch_session(initial: dict | None = None):

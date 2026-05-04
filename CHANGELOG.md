@@ -5,6 +5,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.2.1] — 2026-04-27
+
+### Security
+- HTTP timeouts on all OpenAI/`httpx` clients (connect 10s / read 120s) via shared `make_openai_client`.
+- 5MB cap on font downloads (`exporters.py`), OpenRouter pricing/free-model JSON payloads, and project file reads.
+- `subprocess.Popen` editor invocation in `list_view.py` switched to `safe_editor.build_editor_argv`.
+- POSIX `chmod 0o600` on user state files (`settings.json`, `actions.log`, `context_state.json`, `model_overrides.json`).
+- `agents/_api_client.py` debug logs now route raw exception text through `redact_for_display`.
+- `zlib` decompression bomb cap (`VAULT_DECOMPRESS_MAX_BYTES = 16MB`) in `sqlite_repository`.
+- Extended `redact_for_display` patterns: `password=`, `secret=`, `token=`, `api_key=`, generic 40+ char tokens.
+- TOCTOU fix in `base_agent.log_action` (open `"a"` directly instead of `exists()` + `open`).
+- `read_project_file` now rejects files larger than `PROJECT_FILE_MAX_BYTES = 2MB`.
+
+### Changed
+- `core/cli/pythonCli/` → `core/cli/python_cli/` rename across codebase, tests, docs, packaging.
+- `core/config/registry.py` split into `core/config/registry/coding/*.py` (one file per role).
+- Centralized constants in `core/config/constants.py`: `AI_TEAM_HOME`, HTTP/size caps, `VRAM_USAGE_FACTOR`, env var names.
+- `agents/_api_client.py` `call_api` / `call_api_stream` refactored into `_preflight_budget`, `_record_completion_usage`, `_handle_retry_error`.
+- Crypto fallback in `state.py` now logs warning once instead of silent plaintext store.
+- BTW inline streaming extracted into `_btw_inline.py` shared by `list_view` and `monitor_app`.
+
+### Fixed
+- `start_flow.run_agent_graph` broad `except Exception: pass` replaced with logged error + pipeline status.
+- `monitor_app` role lookup logs at debug level instead of swallowing silently.
+- Type hints added to `chat_completions_create*`, `ChatAgent.ask`, `ConfigService.list_workers`.
+
+### Removed
+- Empty `core/orchestrator.py`.
+- Unused `langchain-core` and `langsmith` dependencies.
+
+### Added
+- `tests/test_free_model_finder.py`, `tests/test_chat_agent.py`.
+
+---
+
 ## [6.2.0] — 2026-04-22
 
 ### Security

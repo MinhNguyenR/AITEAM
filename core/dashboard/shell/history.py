@@ -8,9 +8,10 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 
-from core.cli.cli_prompt import GLOBAL_BACK, GLOBAL_EXIT, normalize_global_command, wait_enter
-from core.cli.nav import NavToMain
-from core.cli.chrome.ui import clear_screen
+from core.cli.python_cli.shell.prompt import GLOBAL_BACK, GLOBAL_EXIT, normalize_global_command, wait_enter
+from core.cli.python_cli.shell.nav import NavToMain
+from core.cli.python_cli.ui.ui import clear_screen
+from core.cli.python_cli.i18n import t
 from core.dashboard.shell import data as dashboard_data
 
 from ..output.exporters import export_excel
@@ -43,33 +44,31 @@ def _parse_positive_int(raw: str, *, min_value: int = 1, max_value: Optional[int
 
 
 def show_history_browser(range_state: DashboardRangeState) -> None:
-    from core.cli.chrome.ui import console
+    from core.cli.python_cli.ui.ui import console
 
     while True:
         if range_state.since is None or range_state.until is None:
-            console.print("[yellow]Range không hợp lệ, dùng mặc định 1 ngày.[/yellow]")
+            console.print(f"[yellow]{t('dash.invalid_range')}[/yellow]")
             range_state.set_days(1)
         clear_screen()
-        header("DASHBOARD — HISTORY")
+        header(f"{t('menu.dashboard.desc')} — {t('dash.history_label').upper()}")
         _dashboard_panel(
-            "History help",
-            "Nhập số ngày trực tiếp để đổi range. Ví dụ: `7`, `12`, `30`.\n"
-            "Lệnh nhanh: `n` trang sau · `p` trang trước · `open` xem turn · `export txt` / `export pdf` / `export xlsx`\n"
-            "Global: `back` quay lại 1 tầng · `exit` thoát về CLI chính",
+            t("dash.history_help"),
+            t("dash.history_desc"),
             border_style="#6495ED",
         )
-        _dashboard_panel("Current range", f"Đang xem: {range_state.days} ngày", border_style="#C8C8FF")
+        _dashboard_panel(t("dash.curr_range"), t("dash.viewing_days").format(n=range_state.days), border_style="#C8C8FF")
         batches = dashboard_data.summarize_tokens_by_cli_batches(range_state.since, range_state.until)
         page_slice, page, total_pages = paginate(batches, range_state.log_page, HISTORY_PAGE_SIZE)
         table = Table(box=ROUNDED, show_lines=False)
         table.add_column("#", style="cyan", justify="right", width=3)
-        table.add_column("Timestamp", style="white", overflow="fold")
-        table.add_column("Mode", style="magenta", width=10)
-        table.add_column("Req", justify="right", width=5)
-        table.add_column("Tokens", justify="right", width=10)
-        table.add_column("Spend", justify="right", style="yellow", width=10)
+        table.add_column(t("dash.time"), style="white", overflow="fold")
+        table.add_column(t("dash.model_col"), style="magenta", width=10)
+        table.add_column(t("dash.req_col"), justify="right", width=5)
+        table.add_column(t("dash.tokens"), justify="right", width=10)
+        table.add_column(t("dash.spend"), justify="right", style="yellow", width=10)
         if not page_slice:
-            table.add_row("—", "Không có history trong range này", "—", "—", "—", "—")
+            table.add_row("—", t("dash.no_history"), "—", "—", "—", "—")
         else:
             for idx, b in enumerate(page_slice, start=1 + page * HISTORY_PAGE_SIZE):
                 reqs = sum(int(v.get("requests", 0)) for v in (b.get("by_role") or {}).values())
@@ -81,98 +80,71 @@ def show_history_browser(range_state: DashboardRangeState) -> None:
                     f"{int(b.get('totals', {}).get('total_tokens', 0)):,}",
                     f"${float(b.get('cost_usd', 0.0)):.5f}",
                 )
-        _dashboard_panel(f"History turns — page {page + 1}/{total_pages}", table, border_style="#C8C8FF")
-        raw = normalize_global_command(Prompt.ask("History command hoặc số ngày", default=str(range_state.days)))
-        if raw == GLOBAL_EXIT:
+        _dashboard_panel(t("dash.history_turns").format(curr=page + 1, total=total_pages), table, border_style="#C8C8FF")
+        choice = ask_choice(
+            f"[{PASTEL_CYAN}]>[/{PASTEL_CYAN}]",
+            ["/back", "/exit", "/next", "/prev", "/open", "/export"],
+            default="/back",
+            context="dashboard_history"
+        )
+        if choice in (GLOBAL_EXIT, "/exit"):
             raise NavToMain
-        if raw in (GLOBAL_BACK, "b", "q"):
+        if choice in (GLOBAL_BACK, "/back"):
             return
-        if raw in ("help", "h", "?"):
+
+        if choice == "/next":
+            range_state.log_page = min(range_state.log_page + 1, max(0, total_pages - 1))
             continue
-        if raw in ("n", "next"):
-            range_state.log_page += 1
+        if choice == "/prev":
+            range_state.log_page = max(0, range_state.log_page - 1)
             continue
-        if raw in ("p", "prev", "previous"):
-            range_state.log_page -= 1
-            continue
-        if raw == HISTORY_CMD_CHECK:
-            page_slice, page, total_pages = paginate(batches, range_state.log_page, HISTORY_PAGE_SIZE)
-            if not page_slice:
-                console.print("[yellow]Không có turn để open.[/yellow]")
+        if choice == "/open":
+            if not batches:
+                console.print(f"[yellow]{t('dash.no_history')}[/yellow]")
                 continue
-            raw_idx = normalize_global_command(Prompt.ask(f"Open turn (1–{len(page_slice)})", default="1"))
-            idx = _parse_positive_int(raw_idx, min_value=1, max_value=len(page_slice))
-            if idx is not None:
+            from core.cli.python_cli.ui.palette_app import ask_with_palette
+            raw_idx = normalize_global_command(ask_with_palette(t("dash.open_turn_prompt").format(n=len(batches)), context="dashboard_history", default="1"))
+            global_idx = _parse_positive_int(raw_idx, min_value=1, max_value=len(batches))
+            if global_idx is not None:
                 clear_screen()
-                header(f"OPEN TURN {idx}")
-                _show_batch_detail(page_slice[idx - 1])
+                header(t("dash.open_turn").format(n=global_idx))
+                _show_batch_detail(batches[global_idx - 1])
                 wait_enter()
             else:
-                console.print(f"[yellow]Chỉ nhận số từ 1 đến {len(page_slice)}.[/yellow]")
+                console.print(f"[yellow]{t('dash.invalid_turn').format(n=len(batches))}[/yellow]")
                 wait_enter()
             continue
-        if raw.startswith(f"{HISTORY_CMD_OPEN} "):
-            suffix = raw[len(f"{HISTORY_CMD_OPEN} ") :].strip()
-            turn_no = _parse_positive_int(suffix)
-            if turn_no is not None:
-                page_slice, page, total_pages = paginate(batches, range_state.log_page, HISTORY_PAGE_SIZE)
-                if not page_slice:
-                    console.print("[yellow]Không có turn để open.[/yellow]")
-                    continue
-                idx = turn_no - 1
-                if 0 <= idx < len(page_slice):
-                    clear_screen()
-                    header(f"OPEN TURN {turn_no}")
-                    _show_batch_detail(page_slice[idx])
-                    wait_enter()
-                else:
-                    console.print(f"[yellow]Turn {turn_no} không nằm trong trang hiện tại. Hãy chọn từ 1 đến {len(page_slice)}.[/yellow]")
-                    wait_enter()
-                continue
-        if raw == HISTORY_CMD_EXPORT:
-            console.print("[cyan]Export requested: pdf with safe fallback[/cyan]")
+        if choice == "/export":
+            console.print(f"[cyan]{t('dash.export_pdf_fallback')}[/cyan]")
+            from ..reporting.exporter import export_pdf
             export_pdf(Path.cwd(), range_state)
             wait_enter()
             continue
-        if raw == HISTORY_CMD_EXPORT_TXT:
-            console.print("[cyan]Export requested: txt[/cyan]")
-            export_txt(Path.cwd(), range_state, reason="manual export txt")
-            wait_enter()
+        
+        # If they type a number directly, change days
+        if choice.isdigit() and int(choice) > 0:
+            range_state.set_days(int(choice))
             continue
-        if raw == HISTORY_CMD_EXPORT_PDF:
-            console.print("[cyan]Export requested: pdf[/cyan]")
-            export_pdf(Path.cwd(), range_state)
-            wait_enter()
-            continue
-        if raw == HISTORY_CMD_EXPORT_XLSX:
-            console.print("[cyan]Export requested: xlsx[/cyan]")
-            export_excel(Path.cwd(), range_state)
-            wait_enter()
-            continue
-        if raw.isdigit() and int(raw) > 0:
-            range_state.set_days(int(raw))
-            continue
-        if raw in ("", "enter"):
-            continue
-        console.print("[yellow]Không hiểu lệnh. Hãy nhập số ngày như `7` hoặc lệnh `check` / `export` / `back`.[/yellow]")
+            
+        console.print(f"[yellow]{t('ui.invalid_retry')}[/yellow]")
         wait_enter()
 
 
 def _show_batch_detail(batch: dict[str, Any]) -> None:
-    from core.cli.chrome.ui import console
+    from core.cli.python_cli.ui.ui import console
 
     tot = batch.get("totals") or {}
     rows = batch.get("usage_rows") or []
     turn_table = Table(box=ROUNDED, show_lines=False)
-    turn_table.add_column("Field", style="cyan", width=20)
-    turn_table.add_column("Value", style="white", overflow="fold")
-    turn_table.add_row("Turn", f"{batch.get('batch_idx', '?')} · {str(batch.get('timestamp', ''))[:19]} · {batch.get('mode', '')}")
-    turn_table.add_row("Input tokens", f"{int(tot.get('prompt_tokens', 0)):,}")
-    turn_table.add_row("Output tokens", f"{int(tot.get('completion_tokens', 0)):,}")
-    turn_table.add_row("Total tokens", f"{int(tot.get('total_tokens', 0)):,}")
-    turn_table.add_row("Spend", f"${float(batch.get('cost_usd', 0.0)):.5f}")
-    turn_table.add_row("Requests", str(len(rows)))
-    console.print(Panel(turn_table, title="[bold]Check turn[/bold]", border_style="#6495ED", box=ROUNDED))
+    turn_table.add_column(t("dash.field"), style="cyan", width=20)
+    turn_table.add_column(t("ui.value"), style="white", overflow="fold")
+    turn_table.add_row(t("dash.turn"), f"{batch.get('batch_idx', '?')} · {str(batch.get('timestamp', ''))[:19]} · {batch.get('mode', '')}")
+    turn_table.add_row(t("dash.input_tokens"), f"{int(tot.get('prompt_tokens', 0)):,}")
+    turn_table.add_row(t("dash.output_tokens"), f"{int(tot.get('completion_tokens', 0)):,}")
+    turn_table.add_row(t("dash.total_tokens"), f"{int(tot.get('total_tokens', 0)):,}")
+    turn_table.add_row(t("dash.spend"), f"${float(batch.get('cost_usd', 0.0)):.5f}")
+    turn_table.add_row(t("dash.requests"), str(len(rows)))
+    console.print(Panel(turn_table, title=f"[bold]{t('dash.check_turn')}[/bold]", border_style="#6495ED", box=ROUNDED))
 
     paired: dict[tuple[str, str], dict[str, float | int]] = {}
     for r in rows:
@@ -188,12 +160,12 @@ def _show_batch_detail(batch: dict[str, Any]) -> None:
         bucket["cost_usd"] += float(r.get("cost_usd", 0.0) or 0.0)
 
     combined = Table(box=ROUNDED, show_lines=False)
-    combined.add_column("Role", style="cyan", overflow="fold")
-    combined.add_column("Model", style="white", overflow="fold")
-    combined.add_column("Req", justify="right")
-    combined.add_column("Input", justify="right")
-    combined.add_column("Output", justify="right")
-    combined.add_column("Spend", justify="right", style="yellow")
+    combined.add_column(t("info.role_name"), style="cyan", overflow="fold")
+    combined.add_column(t("dash.model_col"), style="white", overflow="fold")
+    combined.add_column(t("dash.req_col"), justify="right")
+    combined.add_column(t("dash.in_col"), justify="right")
+    combined.add_column(t("dash.out_col"), justify="right")
+    combined.add_column(t("dash.spend"), justify="right", style="yellow")
 
     if not paired:
         combined.add_row("—", "—", "—", "—", "—", "—")
@@ -207,4 +179,4 @@ def _show_batch_detail(batch: dict[str, Any]) -> None:
                 f"{int(st.get('completion_tokens', 0)):,}",
                 f"${float(st.get('cost_usd', 0.0)):.5f}",
             )
-    console.print(Panel(combined, title="[bold]Role / Model[/bold]", border_style="#C8C8FF", box=ROUNDED))
+    console.print(Panel(combined, title=f"[bold]{t('dash.role_model')}[/bold]", border_style="#C8C8FF", box=ROUNDED))

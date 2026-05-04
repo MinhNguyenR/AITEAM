@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from core.cli.monitor_payload import (
+from core.cli.python_cli.shell.monitor_payload import (
     MAX_MONITOR_PROMPT_CHARS,
     resolve_trusted_project_root,
     sanitize_monitor_prompt,
 )
-from core.cli.safe_editor import build_editor_argv
+from core.cli.python_cli.shell.safe_editor import build_editor_argv
 
 
 def test_build_editor_argv_rejects_injection(monkeypatch):

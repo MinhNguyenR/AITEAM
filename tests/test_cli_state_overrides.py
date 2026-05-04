@@ -1,4 +1,4 @@
-"""Tests for core/cli/state.py — model/prompt/sampling overrides and context state."""
+"""Tests for core/cli/python_cli/state.py — model/prompt/sampling overrides and context state."""
 import json
 from datetime import datetime
 from pathlib import Path
@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-import core.cli.state as state_mod
+import core.cli.python_cli.shell.state as state_mod
 
 
 def _tmp_overrides(tmp_path: Path):

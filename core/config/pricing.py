@@ -5,6 +5,8 @@ import urllib.error
 import urllib.request
 from typing import Any, Dict, Tuple
 
+from core.config.constants import HTTP_JSON_MAX_BYTES
+
 
 def fetch_openrouter_pricing(
     api_key: str,
@@ -22,8 +24,11 @@ def fetch_openrouter_pricing(
             url,
             headers={"Authorization": f"Bearer {api_key}", "HTTP-Referer": "https://github.com/ai-team-blueprint"},
         )
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        with urllib.request.urlopen(req, timeout=8) as resp:  # nosec B310
+            raw = resp.read(HTTP_JSON_MAX_BYTES + 1)
+            if len(raw) > HTTP_JSON_MAX_BYTES:
+                raise ValueError(f"response exceeds {HTTP_JSON_MAX_BYTES} byte cap")
+            data = json.loads(raw.decode("utf-8"))
 
         for model_info in data.get("data", []):
             mid = model_info.get("id", "")
@@ -94,8 +99,11 @@ def fetch_model_detail(api_key: str, model_id: str) -> Dict[str, Any]:
             url,
             headers={"Authorization": f"Bearer {api_key}", "HTTP-Referer": "https://github.com/ai-team-blueprint"},
         )
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        with urllib.request.urlopen(req, timeout=8) as resp:  # nosec B310
+            raw = resp.read(HTTP_JSON_MAX_BYTES + 1)
+            if len(raw) > HTTP_JSON_MAX_BYTES:
+                return {}
+            data = json.loads(raw.decode("utf-8"))
         for m in data.get("data", []):
             if m.get("id") == model_id:
                 price = m.get("pricing", {})

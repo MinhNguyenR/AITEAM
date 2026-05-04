@@ -12,6 +12,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.1,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
     "FIX_WORKER_B": {
         "model": "deepseek/deepseek-v3.2",
@@ -22,6 +23,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.1,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
     "FIX_WORKER_C": {
         "model": "deepseek/deepseek-v4-flash",
@@ -32,6 +34,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.1,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
     "ADVANCED_FIX_WORKER_A": {
         "model": "xiaomi/mimo-v2.5-pro",
@@ -42,6 +45,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.1,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
     "ADVANCED_FIX_WORKER_B": {
         "model": "moonshotai/kimi-k2.6",
@@ -52,5 +56,6 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.1,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
 }

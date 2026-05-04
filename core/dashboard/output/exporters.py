@@ -8,6 +8,7 @@ import urllib.error
 import urllib.request
 
 
+from core.config.constants import HTTP_DOWNLOAD_MAX_BYTES, HTTP_READ_TIMEOUT_SEC
 from core.paths import FONTS_DIR, LEGACY_ASSETS_FONTS, REPO_ROOT
 
 from ..reporting.report_model import build_usage_report
@@ -45,11 +46,33 @@ def _download_google_font(target_dir: Path) -> Optional[Path]:
     out = target_dir / GOOGLE_INTER_FILENAME
     if out.exists() and out.stat().st_size > 0:
         return out
+    tmp = out.with_suffix(out.suffix + ".part")
     try:
-        urllib.request.urlretrieve(GOOGLE_INTER_URL, out)
+        req = urllib.request.Request(
+            GOOGLE_INTER_URL, headers={"User-Agent": "aiteam/6.2"}
+        )
+        with urllib.request.urlopen(req, timeout=HTTP_READ_TIMEOUT_SEC) as resp:  # nosec B310
+            written = 0
+            with open(tmp, "wb") as fh:
+                while True:
+                    chunk = resp.read(64 * 1024)
+                    if not chunk:
+                        break
+                    written += len(chunk)
+                    if written > HTTP_DOWNLOAD_MAX_BYTES:
+                        raise ValueError(
+                            f"font exceeds cap {HTTP_DOWNLOAD_MAX_BYTES}"
+                        )
+                    fh.write(chunk)
+        tmp.replace(out)
         if out.exists() and out.stat().st_size > 0:
             return out
     except (OSError, urllib.error.URLError, ValueError):
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
         return None
     return None
 

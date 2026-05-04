@@ -38,7 +38,7 @@ dev = [
 ]
 
 [project.scripts]
-aiteam = "core.cli.python_cli.app:main_loop"
+aiteam = "core.cli.python_cli.entrypoints.app:main_loop"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -55,19 +55,17 @@ addopts = "-q --cov=core --cov=agents --cov=utils --cov-report=term-missing"
 
 [tool.coverage.run]
 omit = [
-    "core/cli/workflow/tui/*",
-    "core/cli/chrome/*",
-    "core/cli/monitor_queue_drain.py",
-    "core/cli/choice_lists.py",
+    "core/cli/python_cli/workflow/tui/*",
+    "core/cli/python_cli/shell/monitor_queue_drain.py",
+    "core/cli/python_cli/shell/choice_lists.py",
     "scripts/*",
 ]
 
 [tool.coverage.report]
 omit = [
-    "core/cli/workflow/tui/*",
-    "core/cli/chrome/*",
-    "core/cli/monitor_queue_drain.py",
-    "core/cli/choice_lists.py",
+    "core/cli/python_cli/workflow/tui/*",
+    "core/cli/python_cli/shell/monitor_queue_drain.py",
+    "core/cli/python_cli/shell/choice_lists.py",
     "scripts/*",
 ]
 

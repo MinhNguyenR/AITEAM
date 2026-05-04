@@ -1,1 +1,4 @@
-"""Workflow runtime: session, LangGraph runner, checkpoints, activity log."""
+"""Workflow runtime.
+
+Subpackages: ``session/``, ``graph/`` (runner), ``persist/`` (checkpoint + activity log), ``present/`` (pipeline markup).
+"""

@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-import core.cli.workflow.runtime.session_notification as sn
+import core.cli.python_cli.workflow.runtime.session.session_notification as sn
 
 
 def _patch_session(initial=None):

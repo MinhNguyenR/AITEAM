@@ -30,7 +30,7 @@
 
 ## Repository layout
 
-Entrypoint: `aiteam` → `core.cli.app:main_loop`. Full map: [`docs/REPO_LAYOUT.md`](docs/REPO_LAYOUT.md).
+Entrypoint: `aiteam` → `core.cli.python_cli.entrypoints.app:main_loop`. Full map: [`docs/REPO_LAYOUT.md`](docs/REPO_LAYOUT.md).
 
 | Area | Role |
 |------|------|
@@ -38,7 +38,7 @@ Entrypoint: `aiteam` → `core.cli.app:main_loop`. Full map: [`docs/REPO_LAYOUT.
 | [`scripts/run_aiteam.py`](scripts/run_aiteam.py) | Dev runner (`python scripts/run_aiteam.py`). |
 | [`core/resources/fonts/`](core/resources/fonts/) | Bundled Inter fonts for PDF/dashboard. |
 | [`agents/`](agents/) | Agent implementations; LangGraph graph under [`agents/team_map/`](agents/team_map/). |
-| [`core/cli/`](core/cli/) | Menu shell: [`app.py`](core/cli/app.py), [`state.py`](core/cli/state.py), prompts/registry; **flows** in [`core/cli/flows/`](core/cli/flows/) (ask/start/context/…); **UI chrome** in [`core/cli/chrome/`](core/cli/chrome/) (console helpers, palette, help); **workflow** in [`core/cli/workflow/runtime/`](core/cli/workflow/runtime/) (session, runner, checkpoints) and [`core/cli/workflow/tui/`](core/cli/workflow/tui/) (monitor, list view). |
+| [`core/cli/python_cli/`](core/cli/python_cli/) | Menu shell: [`app.py`](core/cli/python_cli/app.py), [`state.py`](core/cli/python_cli/state.py), prompts/registry; **flows** in [`core/cli/python_cli/flows/`](core/cli/python_cli/flows/) (ask/start/context/…); **UI chrome** in [`core/cli/python_cli/chrome/`](core/cli/python_cli/chrome/) (console helpers, palette, help); **workflow** in [`core/cli/python_cli/workflow/runtime/`](core/cli/python_cli/workflow/runtime/) (session, runner, checkpoints) and [`core/cli/python_cli/workflow/tui/`](core/cli/python_cli/workflow/tui/) (monitor, list view). |
 | [`core/domain/`](core/domain/) | Prompts, routing map, pipeline/task state shared with agents. |
 | [`core/dashboard/`](core/dashboard/) | Usage dashboard (Rich); exports: [`report_model.py`](core/dashboard/report_model.py) (single `UsageReport`), [`text_export.py`](core/dashboard/text_export.py) / [`report_txt_format.py`](core/dashboard/report_txt_format.py) (TXT), [`pdf_export.py`](core/dashboard/pdf_export.py) (PDF), [`exporters.py`](core/dashboard/exporters.py) (XLSX KPI + sheets). |
 | [`core/config/`](core/config/), [`core/storage/`](core/storage/) | Configuration and persistence. |

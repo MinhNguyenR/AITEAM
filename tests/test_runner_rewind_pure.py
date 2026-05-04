@@ -9,9 +9,9 @@ import pytest
 # Patch heavy imports before loading module
 import sys
 sys.modules.setdefault("agents.team_map._team_map", MagicMock(get_graph=MagicMock()))
-sys.modules.setdefault("core.cli.workflow.runtime.checkpointer", MagicMock(get_checkpointer=MagicMock()))
+sys.modules.setdefault("core.cli.python_cli.workflow.runtime.persist.checkpointer", MagicMock(get_checkpointer=MagicMock()))
 
-from core.cli.workflow.runtime.runner_rewind import (
+from core.cli.python_cli.workflow.runtime.graph.runner_rewind import (
     _history_ts,
     _normalize_stream_node_key,
     _task_workspace_from_values,
@@ -89,7 +89,7 @@ class TestTaskWorkspaceFromValues:
     def test_valid_uuid_returns_task_id(self):
         import uuid
         uid = str(uuid.uuid4())
-        with patch("core.cli.workflow.runtime.runner_rewind.paths_for_task") as mock_paths:
+        with patch("core.cli.python_cli.workflow.runtime.graph.runner_rewind.paths_for_task") as mock_paths:
             mock_paths.return_value = MagicMock(run_dir=Path("/fake/dir"))
             task_id, run_dir = _task_workspace_from_values({"brief_dict": {"task_uuid": uid}})
         assert task_id == uid

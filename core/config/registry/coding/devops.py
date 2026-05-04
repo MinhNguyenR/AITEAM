@@ -12,5 +12,6 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.2,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
 }

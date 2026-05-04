@@ -4,7 +4,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import core.cli.workflow.runtime.session_pipeline_state as sps
+import core.cli.python_cli.workflow.runtime.session.session_pipeline_state as sps
 
 
 def _patch_session(initial: dict | None = None):
@@ -43,7 +43,7 @@ class TestApplyStaleWorkflowUiIfNeeded:
         mock_ctx_flow.find_context_md.return_value = None
         mock_ctx_flow.is_no_context.return_value = True
         with lp, sp, \
-             patch.dict("sys.modules", {"core.cli.flows.context_flow": mock_ctx_flow}), \
+             patch.dict("sys.modules", {"core.cli.python_cli.features.context.flow": mock_ctx_flow}), \
              patch.object(sps, "is_paused_for_review", return_value=True), \
              patch.object(sps, "set_paused_for_review"):
             sps.apply_stale_workflow_ui_if_needed("/project/root")
@@ -56,7 +56,7 @@ class TestApplyStaleWorkflowUiIfNeeded:
         mock_ctx_flow.find_context_md.return_value = mock_ctx
         mock_ctx_flow.is_no_context.return_value = False
         with lp, sp, \
-             patch.dict("sys.modules", {"core.cli.flows.context_flow": mock_ctx_flow}):
+             patch.dict("sys.modules", {"core.cli.python_cli.features.context.flow": mock_ctx_flow}):
             sps.apply_stale_workflow_ui_if_needed("/project/root")
         # No state changes expected since ctx_ok=True → early return
 
@@ -70,7 +70,7 @@ class TestApplyStaleWorkflowUiIfNeeded:
         mock_ctx_flow.find_context_md.return_value = None
         mock_ctx_flow.is_no_context.return_value = True
         with lp, sp, \
-             patch.dict("sys.modules", {"core.cli.flows.context_flow": mock_ctx_flow}), \
+             patch.dict("sys.modules", {"core.cli.python_cli.features.context.flow": mock_ctx_flow}), \
              patch.object(sps, "is_paused_for_review", return_value=False):
             sps.apply_stale_workflow_ui_if_needed("/project/root")
         # should not reset since ambassador is running
@@ -85,7 +85,7 @@ class TestApplyStaleWorkflowUiIfNeeded:
         mock_ctx_flow.find_context_md.return_value = None
         mock_ctx_flow.is_no_context.return_value = True
         with lp, sp, \
-             patch.dict("sys.modules", {"core.cli.flows.context_flow": mock_ctx_flow}), \
+             patch.dict("sys.modules", {"core.cli.python_cli.features.context.flow": mock_ctx_flow}), \
              patch.object(sps, "is_paused_for_review", return_value=False):
             sps.apply_stale_workflow_ui_if_needed("/project/root")
 
@@ -100,7 +100,7 @@ class TestApplyStaleWorkflowUiIfNeeded:
         mock_ctx_flow.find_context_md.return_value = None
         mock_ctx_flow.is_no_context.return_value = True
         with lp, sp, \
-             patch.dict("sys.modules", {"core.cli.flows.context_flow": mock_ctx_flow}), \
+             patch.dict("sys.modules", {"core.cli.python_cli.features.context.flow": mock_ctx_flow}), \
              patch.object(sps, "is_paused_for_review", return_value=False):
             sps.apply_stale_workflow_ui_if_needed("/project/root")
         assert store[0].get("context_accept_status") == "none"
@@ -109,17 +109,16 @@ class TestApplyStaleWorkflowUiIfNeeded:
 class TestAppendLeaderStreamChunkTruncation:
     def test_truncates_when_over_max(self):
         big_text = "x" * 60000  # > _LEADER_STREAM_MAX = 48000
-        lp, sp, store = _patch_session({"leader_stream_buffer": big_text})
-        with lp, sp:
-            sps.append_leader_stream_chunk("extra")
-        assert len(store[0]["leader_stream_buffer"]) <= sps._LEADER_STREAM_MAX
+        sps.clear_leader_stream_buffer()
+        sps.append_leader_stream_chunk(big_text)
+        sps.append_leader_stream_chunk("extra")
+        assert len(sps._STREAM_BUFFER) <= sps._LEADER_STREAM_MAX
 
     def test_empty_text_noop(self):
-        lp, sp, store = _patch_session({"leader_stream_buffer": "existing"})
-        with lp, sp:
-            sps.append_leader_stream_chunk("")
-        # save_session should not have been called
-        assert store[0].get("leader_stream_buffer") == "existing"
+        sps.clear_leader_stream_buffer()
+        sps.append_leader_stream_chunk("existing")
+        sps.append_leader_stream_chunk("")
+        assert sps._STREAM_BUFFER == "existing"
 
 
 class TestSetPipelineAfterAmbassador:

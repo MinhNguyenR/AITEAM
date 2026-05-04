@@ -10,6 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from core.config.constants import AI_TEAM_HOME
+
 logger = logging.getLogger(__name__)
 
 
@@ -19,7 +21,7 @@ def _fts5_escape_term(term: str) -> str:
 
 
 def _db_path() -> Path:
-    p = Path.home() / ".ai-team" / "graphrag.sqlite"
+    p = AI_TEAM_HOME / "graphrag.sqlite"
     p.parent.mkdir(parents=True, exist_ok=True)
     return p
 

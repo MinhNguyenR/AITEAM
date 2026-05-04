@@ -1,4 +1,4 @@
-"""Tests for core/cli/workflow/runtime/activity_log.py — JSONL log helpers."""
+"""Tests for core/cli/python_cli/workflow/runtime/activity_log.py — JSONL log helpers."""
 import json
 import time
 from pathlib import Path
@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-import core.cli.workflow.runtime.activity_log as al
+import core.cli.python_cli.workflow.runtime.persist.activity_log as al
 
 
 def _patch_log(tmp_path):
@@ -134,8 +134,8 @@ class TestRemoveWorkflowActivity:
 class TestFormatActivityLines:
     def test_basic_format(self):
         records = [{"ts": time.time(), "node": "Leader", "action": "done", "detail": "ok"}]
-        with patch("core.cli.workflow.runtime.activity_log.human_text_for", return_value=""):
-            with patch("core.cli.workflow.runtime.activity_log.format_action_with_badge", return_value="done"):
+        with patch("core.cli.python_cli.workflow.runtime.persist.activity_log.human_text_for", return_value=""):
+            with patch("core.cli.python_cli.workflow.runtime.persist.activity_log.format_action_with_badge", return_value="done"):
                 lines = al.format_activity_lines(records)
         assert len(lines) == 1
         assert "Leader" in lines[0]
@@ -150,7 +150,7 @@ class TestFormatActivityLines:
             {"ts": time.time(), "node": "A", "action": "found", "detail": "needle"},
             {"ts": time.time(), "node": "B", "action": "other", "detail": "haystack"},
         ]
-        with patch("core.cli.workflow.runtime.activity_log.human_text_for", return_value=""):
-            with patch("core.cli.workflow.runtime.activity_log.format_action_with_badge", return_value="x"):
+        with patch("core.cli.python_cli.workflow.runtime.persist.activity_log.human_text_for", return_value=""):
+            with patch("core.cli.python_cli.workflow.runtime.persist.activity_log.format_action_with_badge", return_value="x"):
                 lines = al.format_activity_lines(records, needle="needle")
         assert len(lines) == 1

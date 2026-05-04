@@ -5,7 +5,7 @@ import unittest.mock
 from pathlib import Path
 
 from agents.base_agent import BaseAgent
-from core.cli.state import log_system_action
+from core.cli.python_cli.shell.state import log_system_action
 from core.config.settings import mask_api_key
 from core.storage.knowledge_store import _vault_wrap
 from utils.env_guard import redact_for_display

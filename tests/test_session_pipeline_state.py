@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-import core.cli.workflow.runtime.session_pipeline_state as sps
+import core.cli.python_cli.workflow.runtime.session.session_pipeline_state as sps
 
 
 def _patch_session(initial: dict | None = None):
@@ -121,24 +121,21 @@ class TestContextAcceptStatus:
 
 class TestLeaderStreamBuffer:
     def test_append_chunks(self):
-        lp, sp, store = _patch_session()
-        with lp, sp:
-            sps.append_leader_stream_chunk("hello ")
-            sps.append_leader_stream_chunk("world")
-        assert store[0]["leader_stream_buffer"] == "hello world"
+        sps.clear_leader_stream_buffer()
+        sps.append_leader_stream_chunk("hello ")
+        sps.append_leader_stream_chunk("world")
+        assert sps._STREAM_BUFFER == "hello world"
 
     def test_ignores_empty_chunk(self):
-        lp, sp, store = _patch_session()
-        with lp, sp:
-            sps.append_leader_stream_chunk("")
-        assert store[0].get("leader_stream_buffer", "") == ""
+        sps.clear_leader_stream_buffer()
+        sps.append_leader_stream_chunk("")
+        assert sps._STREAM_BUFFER == ""
 
     def test_clear_buffer(self):
-        lp, sp, store = _patch_session({"leader_stream_buffer": "data"})
-        with lp, sp:
-            sps.clear_leader_stream_buffer()
-        assert store[0]["leader_stream_buffer"] == ""
-        assert store[0]["leader_stream_updated_at"] == 0.0
+        sps.append_leader_stream_chunk("data")
+        sps.clear_leader_stream_buffer()
+        assert sps._STREAM_BUFFER == ""
+        assert sps._STREAM_UPDATED_AT == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -229,5 +226,5 @@ class TestResetPipelineVisual:
             sps.reset_pipeline_visual()
         assert store[0]["pipeline_active_step"] == "idle"
         assert store[0]["pipeline_graph_failed"] is False
-        assert store[0]["leader_stream_buffer"] == ""
+        assert sps._STREAM_BUFFER == ""
         assert store[0]["pipeline_notifications"] == []

@@ -12,6 +12,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
         "temperature": 0.6,
         "top_p": 1.0,
+        "reasoning": {"effort": "high", "exclude": False},
     },
     "TECHNICAL_RESEARCHER": {
         "model": "deepseek/deepseek-v4-flash",
@@ -22,15 +23,17 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
         "temperature": 0.6,
         "top_p": 1.0,
+        "reasoning": {"effort": "high", "exclude": False},
     },
     "EXPERT": {
-        "model": "moonshotai/kimi-k2.6",
-        "role": "Architect",
-        "reason": "Thiết kế kiến trúc hệ thống, đưa ra quyết định công nghệ và review thiết kế tổng thể.",
+        "model": "google/gemini-3.1-pro-preview",
+        "role": "Expert",
+        "reason": "Handles expert-level planning, deep validation, and high-complexity technical reasoning.",
         "tier": "SPECIALIST",
         "priority": 1,
         "max_tokens": 8192,
         "temperature": 0.6,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
 }

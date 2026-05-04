@@ -12,6 +12,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.2,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
     "WORKER_B": {
         "model": "xiaomi/mimo-v2-flash",
@@ -22,6 +23,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.2,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
     "WORKER_C": {
         "model": "x-ai/grok-4.1-fast",
@@ -32,6 +34,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.2,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
     "WORKER_D": {
         "model": "deepseek/deepseek-v4-flash",
@@ -42,6 +45,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.2,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
     "WORKER_E": {
         "model": "google/gemma-4-31b-it",
@@ -52,15 +56,6 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
         "temperature": 0.2,
         "top_p": 1.0,
-    },
-    "EXPLAINER": {
-        "model": "nvidia/nemotron-3-super-120b-a12b",
-        "role": "AI Explainer",
-        "reason": "Chuyên giải thích các 'trade-offs' thiết kế và giải thích các kết quả của mô hình AI.",
-        "tier": "WORKER",
-        "priority": 3,
-        "max_tokens": 4096,
-        "temperature": 0.2,
-        "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
 }

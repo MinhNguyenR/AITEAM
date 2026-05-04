@@ -1,9 +1,9 @@
-"""Tests for core/cli/monitor_payload.py — path validation and prompt sanitation."""
+"""Tests for core/cli/python_cli/monitor_payload.py — path validation and prompt sanitation."""
 from pathlib import Path
 
 import pytest
 
-from core.cli.monitor_payload import (
+from core.cli.python_cli.shell.monitor_payload import (
     MAX_MONITOR_PROMPT_CHARS,
     is_path_under_base,
     resolve_trusted_project_root,

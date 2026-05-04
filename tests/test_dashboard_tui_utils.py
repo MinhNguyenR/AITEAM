@@ -3,7 +3,7 @@ import sys
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
-sys.modules.setdefault("core.cli.chrome.ui", MagicMock(clear_screen=MagicMock()))
+sys.modules.setdefault("core.cli.python_cli.ui.ui", MagicMock(clear_screen=MagicMock()))
 
 from core.dashboard.tui.utils import default_range, paginate, safe_float, safe_int
 

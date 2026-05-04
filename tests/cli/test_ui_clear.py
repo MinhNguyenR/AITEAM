@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest import mock
 
-from core.cli.chrome import ui
+from core.cli.python_cli.ui import ui
 
 
 def test_clear_screen_uses_subprocess_when_no_ansi(monkeypatch):

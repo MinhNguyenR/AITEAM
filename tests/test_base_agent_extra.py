@@ -25,7 +25,7 @@ def _make_agent(tmp_path=None) -> _FakeAgent:
     mock_cfg.BASE_DIR = Path(tmp_path) if tmp_path else Path(".")
     mock_cfg.get_worker = MagicMock(return_value=None)
 
-    with patch("agents.base_agent.OpenAI"):
+    with patch("agents.base_agent.make_openai_client"):
         agent = _FakeAgent(
             agent_name="TestAgent",
             model_name="test-model",

@@ -21,6 +21,7 @@ class DeltaBrief(BaseModel):
     tier: str
     target_model: str
     selected_leader: str
+    intent: str = "agent"
     is_cuda_required: bool = False
     estimated_vram_usage: Optional[str] = None
     is_hardware_bound: bool = False
@@ -31,7 +32,7 @@ class DeltaBrief(BaseModel):
     @field_validator("tier")
     @classmethod
     def validate_tier(cls, v: str) -> str:
-        allowed = {"LOW", "MEDIUM", "EXPERT", "HARD"}
+        allowed = {"LOW", "MEDIUM", "HARD"}
         v_upper = v.upper()
         if v_upper not in allowed:
             raise ValueError(f"Tier must be one of {allowed}, got '{v}'")
@@ -40,7 +41,7 @@ class DeltaBrief(BaseModel):
     @field_validator("selected_leader")
     @classmethod
     def validate_leader(cls, v: str) -> str:
-        allowed = {"LEADER_LOW", "LEADER_MEDIUM", "EXPERT_MIMO", "LEADER_HIGH"}
+        allowed = {"LEADER_LOW", "LEADER_MEDIUM", "LEADER_HIGH"}
         if v not in allowed:
             raise ValueError(f"selected_leader must be one of {allowed}, got '{v}'")
         return v

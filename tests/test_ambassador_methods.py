@@ -40,15 +40,15 @@ class TestBuildDeltaBrief:
             brief = amb._build_delta_brief("cuda kernel", llm, None, "cuda")
         assert brief.tier == "HARD"
 
-    def test_high_complexity_becomes_expert(self):
+    def test_high_complexity_becomes_hard(self):
         amb, _ = _make_ambassador()
         llm = {"tier": "MEDIUM", "is_cuda_required": False, "complexity_score": 0.9,
                "is_hardware_bound": False}
         with patch("agents.ambassador.config") as mc, \
-             patch("agents.ambassador.selected_leader_for_tier", return_value="EXPERT_MIMO"):
+             patch("agents.ambassador.selected_leader_for_tier", return_value="LEADER_HIGH"):
             mc.get_model_for_tier.return_value = "gpt-4"
             brief = amb._build_delta_brief("complex algo", llm, None, "python")
-        assert brief.tier == "EXPERT"
+        assert brief.tier == "HARD"
 
     def test_normal_medium_stays(self):
         amb, _ = _make_ambassador()
@@ -84,7 +84,7 @@ class TestBuildFallbackDeltaBrief:
              patch("agents.ambassador.selected_leader_for_tier", return_value="LEADER_LOW"):
             mc.get_model_for_tier.return_value = "deepseek"
             brief = amb._build_fallback_delta_brief("giải thích python decorator", None, "python")
-        assert brief.tier in ("LOW", "MEDIUM", "HARD", "EXPERT")
+        assert brief.tier in ("LOW", "MEDIUM", "HARD")
 
 
 class TestParse:
@@ -95,7 +95,7 @@ class TestParse:
              patch("agents.ambassador.selected_leader_for_tier", return_value="LEADER_MEDIUM"):
             mc.get_model_for_tier.return_value = "test-model"
             brief = amb.parse("explain python generators")
-        assert brief.tier in ("LOW", "MEDIUM", "EXPERT", "HARD")
+        assert brief.tier in ("LOW", "MEDIUM", "HARD")
 
     def test_parse_calls_api_on_success(self):
         amb, _ = _make_ambassador()
@@ -152,13 +152,13 @@ class TestExecute:
         assert "CUDA required" in output["brief"]["constraints"]
         assert output["brief"]["scope"] == ["*.cu"]
 
-    def test_execute_expert_sets_escalated(self):
+    def test_execute_hard_sets_escalated(self):
         amb, mock_cfg = _make_ambassador()
         with patch.object(amb, "parse") as mock_parse, \
              patch.object(amb, "log_action"):
             mock_brief = MagicMock()
-            mock_brief.tier = "EXPERT"
-            mock_brief.selected_leader = "EXPERT"
+            mock_brief.tier = "HARD"
+            mock_brief.selected_leader = "LEADER_HIGH"
             mock_brief.task_uuid = "uuid-789"
             mock_brief.summary = "Complex algo"
             mock_brief.language_detected = "python"

@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
+from core.config.constants import VAULT_DECOMPRESS_MAX_BYTES
 from core.storage.knowledge.vault_key import load_or_create_vault_key
 from core.storage.knowledge_text import (
     extract_keywords,
@@ -177,7 +178,13 @@ class SqliteKnowledgeRepository:
         return zlib.compress(content.encode("utf-8"), level=9)
 
     def _decompress_content(self, data: bytes) -> str:
-        return zlib.decompress(data).decode("utf-8")
+        decompressor = zlib.decompressobj()
+        out = decompressor.decompress(data, VAULT_DECOMPRESS_MAX_BYTES + 1)
+        if len(out) > VAULT_DECOMPRESS_MAX_BYTES or decompressor.unconsumed_tail:
+            raise ValueError(
+                f"vault content exceeds {VAULT_DECOMPRESS_MAX_BYTES} byte cap"
+            )
+        return out.decode("utf-8")
 
     def _save_vault_file(self, content_id: str, compressed_data: bytes) -> str:
         filepath = self.vault_dir / f"{content_id}.zbin"

@@ -4,7 +4,7 @@ from unittest.mock import patch, call
 
 import pytest
 
-import core.cli.workflow.runtime.session_notification as sn
+import core.cli.python_cli.workflow.runtime.session.session_notification as sn
 
 
 def _make_session(**kwargs):

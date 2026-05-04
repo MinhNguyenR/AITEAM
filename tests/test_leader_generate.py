@@ -25,7 +25,7 @@ def _make_base_leader(tmp_path):
         def format_output(self, r):
             return r
 
-    with patch("agents.base_agent.OpenAI"), \
+    with patch("agents.base_agent.make_openai_client"), \
          patch("agents.leader.config") as mc:
         mc.get_worker.return_value = _make_cfg(tmp_path)
         leader = _ConcreteLeader(
@@ -134,7 +134,7 @@ class TestBuildPrompt:
 
 def _make_leader_med(tmp_path):
     from agents.leader import LeaderMed
-    with patch("agents.base_agent.OpenAI"), \
+    with patch("agents.base_agent.make_openai_client"), \
          patch("agents.leader.config") as mc:
         mc.get_worker.return_value = _make_cfg(tmp_path)
         leader = LeaderMed()
@@ -180,7 +180,7 @@ class TestConcreteLeadersInit:
     def test_leader_low_init(self, tmp_path):
         from agents.leader import LeaderLow
         cfg = {"model": "deepseek-v3", "max_tokens": 8192, "temperature": 0.3}
-        with patch("agents.base_agent.OpenAI"), \
+        with patch("agents.base_agent.make_openai_client"), \
              patch("agents.leader.config") as mc:
             mc.get_worker.return_value = cfg
             leader = LeaderLow()
@@ -189,7 +189,7 @@ class TestConcreteLeadersInit:
     def test_leader_low_build_prompt(self, tmp_path):
         from agents.leader import LeaderLow
         cfg = {"model": "deepseek-v3", "max_tokens": 8192, "temperature": 0.3}
-        with patch("agents.base_agent.OpenAI"), \
+        with patch("agents.base_agent.make_openai_client"), \
              patch("agents.leader.config") as mc:
             mc.get_worker.return_value = cfg
             leader = LeaderLow()
@@ -199,7 +199,7 @@ class TestConcreteLeadersInit:
     def test_leader_high_init(self, tmp_path):
         from agents.leader import LeaderHigh
         cfg = {"model": "gemini-3.1-pro", "max_tokens": 16384, "temperature": 0.3}
-        with patch("agents.base_agent.OpenAI"), \
+        with patch("agents.base_agent.make_openai_client"), \
              patch("agents.leader.config") as mc:
             mc.get_worker.return_value = cfg
             leader = LeaderHigh()
@@ -208,7 +208,7 @@ class TestConcreteLeadersInit:
     def test_leader_high_build_prompt(self, tmp_path):
         from agents.leader import LeaderHigh
         cfg = {"model": "gemini-3.1-pro", "max_tokens": 16384, "temperature": 0.3}
-        with patch("agents.base_agent.OpenAI"), \
+        with patch("agents.base_agent.make_openai_client"), \
              patch("agents.leader.config") as mc:
             mc.get_worker.return_value = cfg
             leader = LeaderHigh()

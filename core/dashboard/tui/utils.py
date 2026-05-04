@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from core.cli.chrome.ui import clear_screen
+from core.cli.python_cli.ui.ui import clear_screen
 from utils import tracker
 
 

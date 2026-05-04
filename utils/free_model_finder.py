@@ -63,33 +63,34 @@ def show_free_model_picker(role_key: str | None = None) -> Optional[str]:
     from rich.style import Style
     from rich.table import Table
     from rich.prompt import Prompt
-    from core.cli.python_cli.chrome.ui import PASTEL_BLUE, PASTEL_CYAN, SOFT_WHITE, console
+    from core.cli.python_cli.ui.ui import PASTEL_BLUE, PASTEL_CYAN, SOFT_WHITE, console
+    from core.cli.python_cli.i18n import t
 
-    console.print(f"\n[{PASTEL_CYAN}]Fetching free models from OpenRouter…[/{PASTEL_CYAN}]")
-    with console.status(f"[{PASTEL_BLUE}]Loading…[/{PASTEL_BLUE}]"):
+    console.print(f"\n[{PASTEL_CYAN}]{t('ui.fetching_free')}[/{PASTEL_CYAN}]")
+    with console.status(f"[{PASTEL_BLUE}]{t('ui.loading')}[/{PASTEL_BLUE}]"):
         models = find_free_models()
 
     if not models:
-        console.print("[yellow]No free models found (network error or none available).[/yellow]")
+        console.print(f"[yellow]{t('dash.no_history')}[/yellow]")
         return None
 
     tbl = Table(box=SIMPLE, show_header=True,
                 header_style=Style(color=PASTEL_CYAN, bold=True),
                 border_style=PASTEL_BLUE, padding=(0, 1))
     tbl.add_column("#", style="dim", width=4)
-    tbl.add_column("Model ID", style=Style(color=PASTEL_CYAN), width=48)
-    tbl.add_column("Name", style=Style(color=SOFT_WHITE), width=30)
-    tbl.add_column("Ctx", justify="right", width=10)
+    tbl.add_column(t("info.model_id"), style=Style(color=PASTEL_CYAN), width=48)
+    tbl.add_column(t("info.role_name"), style=Style(color=SOFT_WHITE), width=30)
+    tbl.add_column(t("ui.col_ctx"), justify="right", width=10)
     for i, m in enumerate(models, 1):
         ctx = f"{m['context_length']:,}" if m["context_length"] else "—"
         tbl.add_row(str(i), m["id"], m["name"], ctx)
 
-    console.print(Panel(tbl, title="[bold]Free Models (OpenRouter)[/bold]",
+    console.print(Panel(tbl, title=f"[bold]{t('info.free_title')}[/bold]",
                         border_style=PASTEL_BLUE, box=ROUNDED))
-    console.print("[dim]Enter a number to select, or press Enter to cancel.[/dim]")
+    console.print(f"[dim]{t('info.free_select_hint')}[/dim]")
 
     try:
-        raw = Prompt.ask(f"[{PASTEL_CYAN}]Select #[/{PASTEL_CYAN}]", default="").strip()
+        raw = Prompt.ask(f"[{PASTEL_CYAN}]{t('ui.select_num')}[/{PASTEL_CYAN}]", default="").strip()
     except (KeyboardInterrupt, EOFError):
         return None
 
@@ -99,15 +100,15 @@ def show_free_model_picker(role_key: str | None = None) -> Optional[str]:
     try:
         idx = int(raw) - 1
         if not (0 <= idx < len(models)):
-            console.print("[red]Invalid selection.[/red]")
+            console.print(f"[red]{t('nav.invalid_choice')}[/red]")
             return None
     except ValueError:
-        console.print("[red]Please enter a number.[/red]")
+        console.print(f"[red]{t('ui.invalid_retry')}[/red]")
         return None
 
     chosen_id = models[idx]["id"]
-    console.print(f"\n[green]Selected:[/green] {chosen_id}")
-    console.print("[dim](Copy the ID above to paste into model override, or press Enter to apply now.)[/dim]")
+    console.print(f"\n[green]{t('info.selected')}[/green] {chosen_id}")
+    console.print(f"[dim]{t('info.copy_hint')}[/dim]")
 
     if role_key:
         _apply_free_model_override(role_key, chosen_id, console, PASTEL_CYAN)
@@ -117,14 +118,15 @@ def show_free_model_picker(role_key: str | None = None) -> Optional[str]:
 
 def _apply_free_model_override(role_key: str, model_id: str, console, PASTEL_CYAN: str) -> None:
     """Apply model override for role_key immediately (no confirmation)."""
-    from core.cli.python_cli.state import set_model_override, get_model_overrides
+    from core.cli.python_cli.shell.state import set_model_override, get_model_overrides
     from core.config import config
+    from core.cli.python_cli.i18n import t
 
     original = get_model_overrides().get(role_key) or (config.get_worker(role_key) or {}).get("model", "")
     set_model_override(role_key, model_id)
-    console.print(f"[green]✓ Override set:[/green] {role_key} → {model_id}")
+    console.print(f"[green]{t('info.ovr_set')}[/green] {role_key} → {model_id}")
     if original:
-        console.print(f"[dim]Previous model: {original}  (type 'change reset' to revert)[/dim]")
+        console.print(f"[dim]{t('info.prev_model').format(m=original)}[/dim]")
 
 
 __all__ = ["find_free_models", "show_free_model_picker"]

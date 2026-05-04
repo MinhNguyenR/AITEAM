@@ -32,7 +32,7 @@ class TestWorkflowEvent:
             import sys
             mock_mod = MagicMock()
             mock_mod.append_workflow_activity = mock_append
-            with patch.dict(sys.modules, {"core.cli.workflow.runtime.activity_log": mock_mod}):
+            with patch.dict(sys.modules, {"core.cli.python_cli.workflow.runtime.persist.activity_log": mock_mod}):
                 workflow_event("leader", "done", "detail")
         mock_append.assert_called_once_with("leader", "done", "detail", level="info")
 
@@ -41,7 +41,7 @@ class TestWorkflowEvent:
         import sys
         mock_mod = MagicMock()
         mock_mod.append_workflow_activity = mock_append
-        with patch.dict(sys.modules, {"core.cli.workflow.runtime.activity_log": mock_mod}):
+        with patch.dict(sys.modules, {"core.cli.python_cli.workflow.runtime.persist.activity_log": mock_mod}):
             workflow_event("node", "action", "det", level="warning")
         mock_append.assert_called_once_with("node", "action", "det", level="warning")
 

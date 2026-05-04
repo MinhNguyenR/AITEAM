@@ -16,7 +16,7 @@ def _make_expert():
         "temperature": 0.3,
         "context_window": 1_000_000,
     }
-    with patch("agents.base_agent.OpenAI"), \
+    with patch("agents.base_agent.make_openai_client"), \
          patch("agents.expert.config") as mc:
         mc.get_worker.return_value = cfg
         expert = Expert()

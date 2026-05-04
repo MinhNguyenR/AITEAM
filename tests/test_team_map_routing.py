@@ -11,14 +11,14 @@ sys.modules.pop("agents.team_map._team_map", None)
 # Stub out heavy imports so we can import the module in isolation
 _MOCKS = {
     "langgraph.graph": MagicMock(END="__end__", START="__start__", StateGraph=MagicMock()),
-    "core.cli.workflow.runtime.session": MagicMock(),
+    "core.cli.python_cli.workflow.runtime.session": MagicMock(),
     "utils.logger": MagicMock(artifact_detail=lambda *a, **kw: "", workflow_event=MagicMock()),
 }
 for mod, mock in _MOCKS.items():
     sys.modules.setdefault(mod, mock)
 
 # Now import the pure routing functions
-from agents.team_map._team_map import route_entry, route_after_leader, route_after_expert_solo
+from agents.team_map._team_map import route_entry, route_after_leader
 
 
 class TestRouteEntry:
@@ -28,8 +28,8 @@ class TestRouteEntry:
     def test_low_tier_goes_to_leader(self):
         assert route_entry(self._state("LOW")) == "leader_generate"
 
-    def test_expert_tier_goes_to_expert_solo(self):
-        assert route_entry(self._state("EXPERT")) == "expert_solo"
+    def test_expert_tier_falls_back_to_leader(self):
+        assert route_entry(self._state("EXPERT")) == "leader_generate"
 
     def test_medium_tier_goes_to_leader(self):
         assert route_entry(self._state("MEDIUM")) == "leader_generate"
@@ -55,8 +55,8 @@ class TestRouteAfterLeader:
     def test_no_context_path_ends(self):
         assert route_after_leader(self._state(ctx=None)) == "end_failed"
 
-    def test_hard_tier_goes_to_coplan(self):
-        assert route_after_leader(self._state(tier="HARD")) == "expert_coplan"
+    def test_hard_tier_goes_to_gate(self):
+        assert route_after_leader(self._state(tier="HARD")) == "human_context_gate"
 
     def test_medium_tier_goes_to_gate(self):
         assert route_after_leader(self._state(tier="MEDIUM")) == "human_context_gate"
@@ -64,13 +64,3 @@ class TestRouteAfterLeader:
     def test_low_tier_goes_to_gate(self):
         assert route_after_leader(self._state(tier="LOW")) == "human_context_gate"
 
-
-class TestRouteAfterExpertSolo:
-    def test_no_context_path_ends(self):
-        assert route_after_expert_solo({"context_path": None}) == "end_failed"
-
-    def test_empty_context_path_ends(self):
-        assert route_after_expert_solo({"context_path": ""}) == "end_failed"
-
-    def test_valid_context_goes_to_gate(self):
-        assert route_after_expert_solo({"context_path": "/path/context.md"}) == "human_context_gate"

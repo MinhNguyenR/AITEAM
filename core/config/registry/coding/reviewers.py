@@ -16,6 +16,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
             "standard": "Review bình thường, tập trung chất lượng thay đổi hiện tại.",
             "reflection": "Suy ngẫm lại lỗi sai, đổi hướng tư duy, rút kinh nghiệm rồi review lại.",
         },
+        "reasoning": {"effort": "medium", "exclude": False},
     },
     "REVIEWER": {
         "model": "deepseek/deepseek-v4-flash",
@@ -30,6 +31,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
             "standard": "Review bình thường, tập trung technical debt và maintainability.",
             "reflection": "Suy ngẫm lại các lỗi sai còn sót, phản biện lại giả định, rồi review lại.",
         },
+        "reasoning": {"effort": "medium", "exclude": False},
     },
     "FINAL_REVIEWER": {
         "model": "moonshotai/kimi-k2.6",
@@ -40,5 +42,6 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
         "temperature": 0.1,
         "top_p": 1.0,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
 }

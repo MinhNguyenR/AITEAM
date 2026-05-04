@@ -1,7 +1,7 @@
 """Additional tests for session_pipeline_state.py — node status, ambassador, snapshot."""
 from unittest.mock import patch
 
-import core.cli.workflow.runtime.session_pipeline_state as sps
+import core.cli.python_cli.workflow.runtime.session.session_pipeline_state as sps
 
 
 def _patch_session(initial: dict | None = None):
@@ -158,3 +158,34 @@ class TestGetPipelineSnapshot:
             snap = sps.get_pipeline_snapshot()
         assert snap["active_step"] == "idle"
         assert snap["graph_failed"] is False
+
+
+class TestPipelineTransitions:
+    def test_transition_pipeline_begin_run(self):
+        lp, sp, store = _patch_session(
+            {
+                "pipeline_run_finished": True,
+                "pipeline_paused_at_gate": True,
+                "pipeline_graph_failed": True,
+            }
+        )
+        with lp, sp:
+            sps.transition_pipeline_begin_run()
+        assert store[0]["pipeline_run_finished"] is False
+        assert store[0]["pipeline_paused_at_gate"] is False
+        assert store[0]["pipeline_graph_failed"] is False
+
+    def test_transition_pipeline_pause_at_gate(self):
+        lp, sp, store = _patch_session({})
+        with lp, sp:
+            sps.transition_pipeline_pause_at_gate()
+        assert store[0]["pipeline_paused_at_gate"] is True
+        assert store[0]["pipeline_active_step"] == "human_context_gate"
+
+    def test_transition_pipeline_finish(self):
+        lp, sp, store = _patch_session({"pipeline_active_step": "leader_generate"})
+        with lp, sp:
+            sps.transition_pipeline_finish(failed=True)
+        assert store[0]["pipeline_run_finished"] is True
+        assert store[0]["pipeline_graph_failed"] is True
+        assert store[0]["pipeline_active_step"] == "idle"

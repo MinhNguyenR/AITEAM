@@ -199,7 +199,7 @@ class TestAggregateStreamWithUsageChunks:
         import sys
         mock_ws = MagicMock()
         mock_ws.append_leader_stream_chunk = MagicMock(side_effect=LookupError("no monitor"))
-        with patch.dict(sys.modules, {"core.cli.workflow.runtime.session": mock_ws}):
+        with patch.dict(sys.modules, {"core.cli.python_cli.workflow.runtime.session": mock_ws}):
             content, _, _ = c._aggregate_stream(iter(chunks))
         assert content == "data"  # LookupError should be caught, not raised
 

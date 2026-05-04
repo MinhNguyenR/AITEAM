@@ -36,7 +36,7 @@ class TestDeltaBriefValidation:
             DeltaBrief(**self._valid_kwargs(tier="SUPER"))
 
     def test_all_valid_tiers(self):
-        for tier in ("LOW", "MEDIUM", "EXPERT", "HARD"):
+        for tier in ("LOW", "MEDIUM", "HARD"):
             b = DeltaBrief(**self._valid_kwargs(tier=tier))
             assert b.tier == tier
 
@@ -45,7 +45,7 @@ class TestDeltaBriefValidation:
             DeltaBrief(**self._valid_kwargs(selected_leader="UNKNOWN_LEADER"))
 
     def test_all_valid_leaders(self):
-        for leader in ("LEADER_LOW", "LEADER_MEDIUM", "EXPERT_MIMO", "LEADER_HIGH"):
+        for leader in ("LEADER_LOW", "LEADER_MEDIUM", "LEADER_HIGH"):
             b = DeltaBrief(**self._valid_kwargs(selected_leader=leader))
             assert b.selected_leader == leader
 

@@ -1,5 +1,5 @@
 """
-LangGraph team workflow aligned with core/cli/start_flow pipeline.
+LangGraph team workflow aligned with core/cli/python_cli/start_flow pipeline.
 
 Entry state (post–Ambassador): task, project_root, original_prompt, brief_dict.
 """
@@ -16,10 +16,13 @@ ensure_project_root()
 from langgraph.graph import END, START, StateGraph
 
 from core.domain.delta_brief import DeltaBrief
-from agents.expert import Expert
 from agents.leader import BaseLeader
-from core.domain.pipeline_state import leader_generate_context, write_task_state_json
-from core.cli.workflow.runtime import session as ws
+from core.domain.pipeline_state import (
+    leader_generate_context,
+    tool_curator_generate_tools,
+    write_task_state_json,
+)
+from core.cli.python_cli.workflow.runtime import session as ws
 from utils.file_manager import paths_for_task
 from utils.logger import artifact_detail, workflow_event
 
@@ -35,6 +38,8 @@ class TeamState(TypedDict, total=False):
     validation_status: Optional[str]
     state_json_path: Optional[str]
     leader_failed: bool
+    tools_path: Optional[str]
+    curator_failed: bool
 
 
 def _brief(state: TeamState) -> DeltaBrief:
@@ -45,8 +50,6 @@ def route_entry(state: TeamState) -> str:
     tier = state["brief_dict"].get("tier", "MEDIUM")
     if tier == "LOW":
         return "leader_generate"
-    if tier == "EXPERT":
-        return "expert_solo"
     return "leader_generate"
 
 
@@ -80,59 +83,7 @@ def node_leader_generate(state: TeamState) -> TeamState:
 def route_after_leader(state: TeamState) -> str:
     if state.get("leader_failed") or not state.get("context_path"):
         return "end_failed"
-    tier = state["brief_dict"].get("tier", "MEDIUM")
-    if tier == "HARD":
-        return "expert_coplan"
     return "human_context_gate"
-
-
-def node_expert_solo(state: TeamState) -> TeamState:
-    ws.touch_pipeline_busy()
-    ws.set_pipeline_active_step("expert_solo")
-    ws.update_workflow_node_status("expert_solo", "running", "Đang generate context")
-    workflow_event("expert_solo", "enter", "Expert generate context")
-    ws.set_pipeline_status_message("Expert đang generate context.md…")
-    brief = _brief(state)
-    state_path = paths_for_task(brief.task_uuid).state_path
-    if not state_path.exists():
-        state_path = write_task_state_json(
-            brief,
-            state["original_prompt"],
-            state["project_root"],
-            source_node="ambassador",
-        )
-    expert = Expert(budget_limit_usd=5.0)
-    try:
-        ctx_str = expert.generate_context(state_path, stream_to_monitor=True)
-    except (OSError, RuntimeError, ValueError, TypeError, FileNotFoundError):
-        logger.exception("expert_solo failed")
-        workflow_event("expert_solo", "expert_generate_failed", "exception during generate_context")
-        return {"context_path": None, "state_json_path": str(state_path), "leader_failed": True}
-    if BaseLeader.is_no_context(ctx_str):
-        workflow_event("expert_solo", "expert_generate_failed", "NO_CONTEXT sentinel")
-        return {"context_path": None, "state_json_path": str(state_path), "leader_failed": True}
-    return {"context_path": ctx_str, "state_json_path": str(state_path), "leader_failed": False}
-
-
-def route_after_expert_solo(state: TeamState) -> str:
-    if not state.get("context_path"):
-        return "end_failed"
-    return "human_context_gate"
-
-
-def node_expert_coplan(state: TeamState) -> TeamState:
-    ws.touch_pipeline_busy()
-    ws.set_pipeline_active_step("expert_coplan")
-    ws.update_workflow_node_status("expert_coplan", "running", "Đang validate")
-    workflow_event("expert_coplan", "enter", "Expert validate plan")
-    ws.set_pipeline_status_message("Expert (co-plan) đang validate…")
-    ctx = state.get("context_path")
-    stp = state.get("state_json_path")
-    if not ctx or not stp:
-        return {"validation_status": "MISSING_PATHS"}
-    expert = Expert(budget_limit_usd=5.0)
-    status = expert.validate_plan(draft_context_path=ctx, state_path=stp)
-    return {"validation_status": status}
 
 
 def node_human_context_gate(state: TeamState) -> TeamState:
@@ -144,10 +95,35 @@ def node_human_context_gate(state: TeamState) -> TeamState:
     return {}
 
 
+def node_tool_curator(state: TeamState) -> TeamState:
+    ws.touch_pipeline_busy()
+    ws.set_pipeline_active_step("tool_curator")
+    ws.update_workflow_node_status("tool_curator", "running", "Đang chọn tool")
+    workflow_event("tool_curator", "enter", "Tool Curator generate tools.md")
+    ws.set_pipeline_status_message("Tool Curator đang viết tools.md…")
+    ctx = state.get("context_path")
+    if not ctx:
+        workflow_event("tool_curator", "tool_curator_skipped", "no context_path")
+        return {"tools_path": None, "curator_failed": True}
+    tools = tool_curator_generate_tools(ctx, quiet=True)
+    if tools is None:
+        workflow_event("tool_curator", "tool_curator_failed", "generate_tools returned None")
+        ws.update_workflow_node_status("tool_curator", "error", "tool curator failed")
+        return {"tools_path": None, "curator_failed": True}
+    ws.update_workflow_node_status("tool_curator", "done", str(tools))
+    workflow_event(
+        "tool_curator",
+        "tools_written",
+        artifact_detail(str(tools), task_id=_brief(state).task_uuid, producer_node="tool_curator"),
+    )
+    ws.set_pipeline_status_message(f"Đã ghi tools.md → {tools}")
+    return {"tools_path": str(tools), "curator_failed": False}
+
+
 def node_finalize_phase1(state: TeamState) -> TeamState:
     from pathlib import Path
 
-    from core.cli.state import update_context_state
+    from core.cli.python_cli.shell.state import update_context_state
 
     ws.touch_pipeline_busy()
     ws.set_pipeline_active_step("finalize_phase1")
@@ -191,29 +167,23 @@ def _build_graph() -> StateGraph:
         return _builder
     g = StateGraph(TeamState)
     g.add_node("leader_generate", node_leader_generate)
-    g.add_node("expert_solo", node_expert_solo)
-    g.add_node("expert_coplan", node_expert_coplan)
     g.add_node("human_context_gate", node_human_context_gate)
+    g.add_node("tool_curator", node_tool_curator)
     g.add_node("finalize_phase1", node_finalize_phase1)
     g.add_node("end_failed", node_end_failed)
 
     g.add_conditional_edges(
         START,
         route_entry,
-        {"expert_solo": "expert_solo", "leader_generate": "leader_generate", "human_context_gate": "human_context_gate"},
+        {"leader_generate": "leader_generate", "human_context_gate": "human_context_gate"},
     )
     g.add_conditional_edges(
         "leader_generate",
         route_after_leader,
-        {"expert_coplan": "expert_coplan", "human_context_gate": "human_context_gate", "end_failed": "end_failed"},
-    )
-    g.add_conditional_edges(
-        "expert_solo",
-        route_after_expert_solo,
         {"human_context_gate": "human_context_gate", "end_failed": "end_failed"},
     )
-    g.add_edge("expert_coplan", "human_context_gate")
-    g.add_edge("human_context_gate", "finalize_phase1")
+    g.add_edge("human_context_gate", "tool_curator")
+    g.add_edge("tool_curator", "finalize_phase1")
     g.add_edge("finalize_phase1", END)
     g.add_edge("end_failed", END)
     _builder = g

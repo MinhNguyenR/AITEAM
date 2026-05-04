@@ -1,4 +1,4 @@
-"""Tests for core/config/registry.py — model registry and tier mapping."""
+"""Tests for core/config/registry/ — model registry and tier mapping."""
 from core.config.registry import (
     MODEL_REGISTRY,
     TIER_MODEL_MAP,
@@ -44,9 +44,10 @@ class TestGetModelForTier:
         model = get_model_for_tier("MEDIUM")
         assert isinstance(model, str)
 
-    def test_expert_tier(self):
+    def test_unknown_expert_tier_falls_back_to_medium(self):
         model = get_model_for_tier("EXPERT")
         assert isinstance(model, str)
+        assert model == TIER_MODEL_MAP["MEDIUM"]
 
     def test_hard_tier(self):
         model = get_model_for_tier("HARD")
@@ -71,5 +72,5 @@ class TestModelRegistry:
             assert "model" in cfg, f"{key} missing model field"
 
     def test_tier_model_map_covers_all_tiers(self):
-        for tier in ("LOW", "MEDIUM", "EXPERT", "HARD"):
+        for tier in ("LOW", "MEDIUM", "HARD"):
             assert tier in TIER_MODEL_MAP

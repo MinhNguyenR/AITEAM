@@ -12,6 +12,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 3000,
         "temperature": 1.2,
         "top_p": 0.95,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
     "CHAT_MODEL_THINKING": {
         "model": "google/gemini-2.5-flash-lite:exacto",
@@ -22,5 +23,6 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4000,
         "temperature": 1.2,
         "top_p": 0.95,
+        "reasoning": {"effort": "medium", "exclude": False},
     },
 }

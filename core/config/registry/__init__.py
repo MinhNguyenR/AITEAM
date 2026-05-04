@@ -9,7 +9,6 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {**_CODING}
 TIER_MODEL_MAP = {
     "LOW": "xiaomi/mimo-v2-flash",
     "MEDIUM": "xiaomi/mimo-v2-flash",
-    "EXPERT": "moonshotai/kimi-k2.6",
     "HARD": "google/gemini-3.1-pro-preview",
 }
 

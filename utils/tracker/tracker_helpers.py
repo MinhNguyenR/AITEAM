@@ -8,17 +8,19 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from core.config.constants import AI_TEAM_HOME
+
 logger = logging.getLogger(__name__)
 
 
 def log_path() -> Path:
-    p = Path.home() / ".ai-team" / "usage_log.jsonl"
+    p = AI_TEAM_HOME / "usage_log.jsonl"
     p.parent.mkdir(parents=True, exist_ok=True)
     return p
 
 
 def batches_path() -> Path:
-    p = Path.home() / ".ai-team" / "cli_batches.jsonl"
+    p = AI_TEAM_HOME / "cli_batches.jsonl"
     p.parent.mkdir(parents=True, exist_ok=True)
     return p
 

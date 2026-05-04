@@ -1,6 +1,6 @@
 """Tests for session_monitor_manager.py — monitor PID management."""
 from unittest.mock import patch
-import core.cli.workflow.runtime.session_monitor_manager as smm
+import core.cli.python_cli.workflow.runtime.session.session_monitor_manager as smm
 
 
 def _patch_session(initial: dict | None = None):

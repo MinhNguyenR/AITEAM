@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest import mock
 
-from core.cli import cli_prompt
+from core.cli.python_cli import cli_prompt
 
 
 def test_ask_choice_valid_input(monkeypatch):
