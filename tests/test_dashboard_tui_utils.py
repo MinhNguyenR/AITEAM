@@ -3,6 +3,9 @@ import sys
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+# test_dashboard_history_pure installs a MagicMock via sys.modules.setdefault.
+# Remove it so this module imports the real implementation even in larger runs.
+sys.modules.pop("core.dashboard.tui.utils", None)
 sys.modules.setdefault("core.cli.python_cli.ui.ui", MagicMock(clear_screen=MagicMock()))
 
 from core.dashboard.tui.utils import default_range, paginate, safe_float, safe_int

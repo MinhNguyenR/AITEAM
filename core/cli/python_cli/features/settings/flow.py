@@ -9,7 +9,7 @@ from rich.table import Table
 
 from core.cli.python_cli.shell.prompt import ask_choice
 from core.cli.python_cli.shell.nav import NavToMain
-from core.cli.python_cli.shell.state import get_cli_settings, save_cli_settings
+from core.app_state import get_cli_settings, save_cli_settings
 from core.cli.python_cli.ui.ui import (
     PASTEL_BLUE, PASTEL_CYAN, PASTEL_LAVENDER, SOFT_WHITE,
     clear_screen, console, print_divider,
@@ -81,8 +81,6 @@ def show_settings():
 
     while True:
         console.print(_settings_table(settings))
-        console.print()
-        console.print(f"  [dim]/back[/dim]  {t('nav.back')}")
         console.print()
 
         choice = ask_choice(

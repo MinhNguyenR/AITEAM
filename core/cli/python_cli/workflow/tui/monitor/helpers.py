@@ -5,10 +5,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from agents.team_map._team_map import get_graph
 from core.bootstrap import REPO_ROOT
 from core.config import config
 from core.domain.routing_map import pipeline_nodes_for_tier, pipeline_registry_key_for_tier
+from core.orchestration import get_graph
 
 from ...runtime.persist.activity_log import format_activity_lines, list_recent_activity
 from ...runtime.persist.checkpointer import get_checkpointer

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.cli.python_cli.shell.state import get_cli_settings
+from core.app_state.settings import get_cli_settings
 from utils import tracker
 
 

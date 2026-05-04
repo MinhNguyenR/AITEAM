@@ -90,6 +90,38 @@ COMMAND_REGISTRY: dict[str, list[tuple[str, str]]] = {
         ("/exit",      "cmd.exit"),
         ("/shutdown",  "cmd.shutdown"),
     ],
+    "context_confirm": [
+        ("/accept",    "cmd.accept"),
+        ("/edit",      "cmd.edit"),
+        ("/regenerate", "cmd.regenerate"),
+        ("/back",      "cmd.back"),
+        ("/delete",    "cmd.delete"),
+        ("/exit",      "cmd.exit"),
+        ("/shutdown",  "cmd.shutdown"),
+    ],
+    "start_mode": [
+        ("/ask",       "cmd.ask_mode"),
+        ("/agent",     "cmd.agent_mode"),
+        ("/back",      "cmd.back"),
+        ("/exit",      "cmd.exit"),
+        ("/shutdown",  "cmd.shutdown"),
+    ],
+    "agent_list": [
+        ("/enter",     "cmd.enter"),
+        ("/back",      "cmd.back"),
+        ("/exit",      "cmd.exit"),
+        ("/shutdown",  "cmd.shutdown"),
+    ],
+    "status": [
+        ("/back",      "cmd.back"),
+        ("/exit",      "cmd.exit"),
+        ("/shutdown",  "cmd.shutdown"),
+    ],
+    "help": [
+        ("/back",      "cmd.back"),
+        ("/exit",      "cmd.exit"),
+        ("/shutdown",  "cmd.shutdown"),
+    ],
     "monitor": [
         ("/ask",       "cmd.ask_usage"),
         ("/agent",     "cmd.agent_usage"),

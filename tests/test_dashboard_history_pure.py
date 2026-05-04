@@ -28,6 +28,11 @@ for mod, mock in _STUBS.items():
 
 from core.dashboard.shell.history import _parse_positive_int
 
+# Avoid leaking stubbed prompt/history modules into later integration-style tests.
+sys.modules.pop("core.dashboard.shell.history", None)
+sys.modules.pop("core.cli.python_cli.shell.prompt", None)
+sys.modules.pop("core.dashboard.reporting.state", None)
+
 
 class TestParsePositiveInt:
     def test_valid_int(self):

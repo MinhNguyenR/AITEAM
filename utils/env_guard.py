@@ -27,7 +27,7 @@ def _dotenv_paths(project_root: Path) -> list[Path]:
 
 
 def warn_if_env_permissions_unsafe(project_root: str | Path | None = None) -> None:
-    root = Path(project_root or os.getcwd()).resolve()
+    root = project_root.resolve() if isinstance(project_root, Path) else Path(project_root or os.getcwd()).resolve()
     for p in _dotenv_paths(root):
         try:
             mode = p.stat().st_mode
@@ -56,7 +56,7 @@ def redact_for_display(text: str) -> str:
 
 def find_active_env_path(project_root: str | Path | None = None) -> Path | None:
     """Return the .env file that is active for the project, or None."""
-    root = Path(project_root or os.getcwd()).resolve()
+    root = project_root.resolve() if isinstance(project_root, Path) else Path(project_root or os.getcwd()).resolve()
     candidate = root / ".env"
     if candidate.is_file():
         return candidate
@@ -67,7 +67,7 @@ def find_active_env_path(project_root: str | Path | None = None) -> Path | None:
 
 
 def run_startup_checks(project_root: str | Path | None = None) -> None:
-    root = Path(project_root or os.getcwd()).resolve()
+    root = project_root.resolve() if isinstance(project_root, Path) else Path(project_root or os.getcwd()).resolve()
     warn_if_env_permissions_unsafe(root)
     # Project-root .env takes priority: remove non-root duplicates
     root_env = root / ".env"

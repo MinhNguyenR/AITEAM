@@ -28,7 +28,7 @@ from core.cli.python_cli.shell.menu import (
     show_status,
 )
 from core.cli.python_cli.shell.nav import NavToMain
-from core.cli.python_cli.shell.state import get_cli_settings
+from core.app_state import get_cli_settings
 from core.cli.python_cli.ui.ui import PASTEL_BLUE, console
 
 

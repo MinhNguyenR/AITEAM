@@ -28,10 +28,10 @@ from core.cli.python_cli.features.context.flow import (
 from core.cli.python_cli.shell.choice_lists import start_mode_choices
 from core.cli.python_cli.shell.command_registry import START_MODE_BY_NUMBER
 from core.cli.python_cli.shell.nav import NavToMain
-from core.cli.python_cli.shell.state import get_cli_settings, log_system_action
-from core.cli.python_cli.workflow.runtime import session as ws_session
+from core.app_state import get_cli_settings, log_system_action
+from core.runtime import session as ws_session
 from core.cli.python_cli.workflow.runtime.persist.activity_log import list_recent_activity
-from core.domain.pipeline_state import write_task_state_json
+from core.orchestration.pipeline_artifacts import write_task_state_json
 from core.cli.python_cli.workflow.runtime.graph.runner import run_agent_graph
 from core.cli.python_cli.ui.ui import PASTEL_BLUE, PASTEL_CYAN, PASTEL_LAVENDER, console
 from core.cli.python_cli.i18n import t
@@ -133,7 +133,7 @@ from core.cli.python_cli.features.start.pipeline_runner import start_pipeline_fr
 def _open_tui(view_mode: str, project_root: str) -> None:
     """Open the workflow TUI (blocks until TUI exits)."""
     try:
-        from core.cli.python_cli.workflow.tui.monitor import run_workflow_list_view
+        from core.frontends.tui import run_workflow_list_view
         run_workflow_list_view(project_root)
     finally:
         try:
@@ -175,9 +175,8 @@ def _classify_task(
             return None
         return mode, p
 
-    console.print(f"[{PASTEL_CYAN}]{t('ui.options')}[/{PASTEL_CYAN}] ask | agent")
     mode = ask_choice(t("ui.choose_mode"), start_mode_choices(), default="agent",
-                      number_map=START_MODE_BY_NUMBER)
+                      number_map=START_MODE_BY_NUMBER, context="start_mode")
     log_system_action("mode.select", mode)
     if mode in ("back", "exit"):
         return None

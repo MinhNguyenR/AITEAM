@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import sys
+
+sys.modules.pop("core.dashboard.reporting.state", None)
 from core.dashboard.shell import total as total_mod
 from core.dashboard.reporting.state import DashboardRangeState
 

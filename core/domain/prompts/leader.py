@@ -23,6 +23,7 @@ CLARIFICATION PROTOCOL — READ CAREFULLY:
 - Only ask if the answer materially changes architecture, scope, data model, or interfaces.
 - Provide 3-6 options covering the realistic design spectrum for each question.
 - If assumptions are acceptable, proceed directly and record them under Problem Framing.
+- If clarification is needed, ask at most 2 high-value clarification questions first unless a third is strictly necessary.
 
 Output format (strict, in this exact order):
 1) Problem framing
@@ -57,6 +58,7 @@ def build_leader_medium_prompt(state_str: str) -> str:
         "If requirements are ambiguous, ask up to 3 clarification questions by outputting ONLY "
         "the [CLARIFICATION] block as a JSON Array — no context.md content before or after it.\n"
         "Only ask if the answer materially changes architecture, scope, data model, or interfaces.\n"
+        "If clarification is needed, ask up to 2 high-value clarification questions first unless a third is strictly necessary.\n"
         "If assumptions are acceptable, proceed directly and record them explicitly.\n\n"
         "## Constraints\n"
         "- Tier: MEDIUM — multi-file feature, ~1 day of focused work\n"

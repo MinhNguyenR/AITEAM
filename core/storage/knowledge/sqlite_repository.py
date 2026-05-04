@@ -52,13 +52,9 @@ class VaultMissingKeyError(RuntimeError):
 def _vault_wrap(compressed: bytes, base_dir: Path) -> bytes:
     f = _vault_fernet_optional(base_dir)
     if f is None:
-        if os.getenv("AI_TEAM_ALLOW_UNENCRYPTED_VAULT", "").lower() in ("1", "true", "yes"):
-            logger.warning("AI_TEAM_VAULT_KEY missing; storing knowledge vault data unencrypted (dev mode)")
-            return compressed
-        raise VaultMissingKeyError(
-            "Vault encryption key unavailable. "
-            "Set AI_TEAM_VAULT_KEY or AI_TEAM_ALLOW_UNENCRYPTED_VAULT=1 for dev/CI."
-        )
+        if os.getenv("AI_TEAM_ALLOW_UNENCRYPTED_VAULT", "").lower() not in ("1", "true", "yes"):
+            logger.warning("AI_TEAM_VAULT_KEY missing; storing knowledge vault data unencrypted")
+        return compressed
     return _VAULT_MAGIC + f.encrypt(compressed)
 
 

@@ -21,7 +21,7 @@ def workflow_event(node: str, action: str, detail: Any = "", *, level: str = "in
 
 
 def system_event(action: str, detail: str = "") -> None:
-    from core.cli.python_cli.shell.state import log_system_action
+    from core.app_state import log_system_action
 
     log_system_action(action, detail)
 

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.cli.python_cli.shell.state import load_context_state, log_system_action, update_context_state
-from core.cli.python_cli.workflow.runtime import session as ws
+from core.app_state import load_context_state, log_system_action, update_context_state
+from core.runtime import session as ws
 from core.cli.python_cli.workflow.runtime.persist.activity_log import clear_workflow_activity_log
 from core.config import config
 from core.domain.delta_brief import STATE_FILENAME

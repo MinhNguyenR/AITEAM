@@ -12,7 +12,7 @@ from textual.widgets import Button, Input, RichLog, Static
 
 from core.cli.python_cli.features.context.flow import find_context_md, is_no_context
 from core.cli.python_cli.shell.safe_editor import run_editor_on_file
-from core.cli.python_cli.shell.state import log_system_action
+from core.app_state import log_system_action
 from core.cli.python_cli.i18n import t
 
 from ...runtime.persist.activity_log import format_activity_lines, list_recent_activity

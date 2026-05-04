@@ -4,7 +4,7 @@ import time
 from typing import Optional
 
 from core.cli.python_cli.shell.nav import NavToMain
-from core.cli.python_cli.shell.state import get_prompt_overrides, log_system_action
+from core.app_state import get_prompt_overrides, log_system_action
 from core.cli.python_cli.ui.ui import console, clear_screen
 from core.domain.prompts import ASK_MODE_SYSTEM_PROMPT
 from core.storage import ask_history

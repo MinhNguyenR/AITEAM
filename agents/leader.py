@@ -97,7 +97,7 @@ class BaseLeader(BaseAgent):
             raise FileNotFoundError(f"State file not found: {state_path}")
 
         try:
-            from core.cli.python_cli.workflow.runtime import session as _ws
+            from core.runtime import session as _ws
             _ws.set_leader_action("reading state.json")
         except Exception:
             pass
@@ -108,7 +108,7 @@ class BaseLeader(BaseAgent):
         logger.info(f"[{self.agent_name}] Loaded state: {state_path}")
 
         try:
-            from core.cli.python_cli.workflow.runtime import session as _ws
+            from core.runtime import session as _ws
             _ws.clear_leader_action()
         except Exception:
             pass

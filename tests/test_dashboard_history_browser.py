@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import sys
 
+sys.modules.pop("core.dashboard.reporting.state", None)
 from core.dashboard.shell import history as history_mod
 from core.dashboard.reporting.state import DashboardRangeState
 

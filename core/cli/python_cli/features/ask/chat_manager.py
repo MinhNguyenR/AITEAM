@@ -10,7 +10,7 @@ from rich.table import Table
 
 from core.cli.python_cli.ui.ui import PASTEL_BLUE, clear_screen, console
 from core.cli.python_cli.shell.nav import NavToMain
-from core.cli.python_cli.shell.state import log_system_action
+from core.app_state import log_system_action
 from core.storage import ask_history
 from core.cli.python_cli.i18n import t
 
@@ -103,7 +103,6 @@ def _pick_chat_on_ask_entry(store: dict, force_new_chat: bool = False) -> Option
                 f"[dim]· {item.get('mode', 'standard')} · {t('ask.msg_count').format(n=item.get('message_count', 0))} · {updated}[/dim]"
             )
         console.print(table)
-        console.print(f"[dim]{t('ask.chat_cmds')}[/dim]")
         from core.cli.python_cli.ui.palette_app import ask_with_palette
         raw = ask_with_palette(f"{t('ask.chat_prompt')} ", context="ask_chat", default="").strip()
         if not raw:

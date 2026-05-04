@@ -7,7 +7,7 @@ from core.cli.python_cli.shell.prompt import GLOBAL_BACK, GLOBAL_EXIT, ask_choic
 from core.cli.python_cli.shell.nav import NavToMain
 from core.cli.python_cli.ui.ui import clear_screen
 from core.cli.python_cli.i18n import t
-from core.dashboard.shell import data as dashboard_data
+from core.dashboard.application import data as dashboard_data
 
 from ..reporting.state import DashboardRangeState
 from ..tui.panels import dashboard_panel as _dashboard_panel
@@ -47,15 +47,20 @@ def show_total_browser(range_state: DashboardRangeState) -> None:
                     f"${float(row['cost']):.5f}",
                 )
         _dashboard_panel(f"{t('dash.total_label').upper()} — {t('dash.page').format(curr=page + 1, total=total_pages)}", table, border_style="#C8C8FF")
-        choice = ask_choice(f"{t('dash.choose_total')}", ["/back", "/exit", "/next", "/prev"], default="/back", context="dashboard_total")
+        choice = ask_choice(
+            f"{t('dash.choose_total')}",
+            ["/back", "/exit", "/next", "/prev", "back", "exit", "n", "p"],
+            default="/back",
+            context="dashboard_total",
+        )
         if choice in (GLOBAL_EXIT, "/exit"):
             raise NavToMain
         if choice in (GLOBAL_BACK, "/back"):
             return
-        if choice == "/next":
+        if choice in ("/next", "n"):
             range_state.batch_page += 1
             continue
-        if choice == "/prev":
+        if choice in ("/prev", "p"):
             range_state.batch_page -= 1
             continue
 

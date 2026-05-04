@@ -118,7 +118,7 @@ def show_free_model_picker(role_key: str | None = None) -> Optional[str]:
 
 def _apply_free_model_override(role_key: str, model_id: str, console, PASTEL_CYAN: str) -> None:
     """Apply model override for role_key immediately (no confirmation)."""
-    from core.cli.python_cli.shell.state import set_model_override, get_model_overrides
+    from core.app_state import get_model_overrides, set_model_override
     from core.config import config
     from core.cli.python_cli.i18n import t
 

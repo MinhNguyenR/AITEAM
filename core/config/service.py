@@ -138,7 +138,7 @@ class Config:
             return None
         cfg = dict(cfg)
         try:
-            from core.cli.python_cli.shell.state import get_model_overrides
+            from core.app_state import get_model_overrides
             overrides = get_model_overrides()
             if worker_id.upper() in overrides:
                 cfg["model"] = overrides[worker_id.upper()]
@@ -161,7 +161,7 @@ class Config:
 
     def list_workers(self) -> list:
         try:
-            from core.cli.python_cli.shell.state import get_model_overrides, get_prompt_overrides
+            from core.app_state import get_model_overrides, get_prompt_overrides
             model_overrides = get_model_overrides()
             prompt_overrides = get_prompt_overrides()
         except (ImportError, OSError, ValueError, TypeError):

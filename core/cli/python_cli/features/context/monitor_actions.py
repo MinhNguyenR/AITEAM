@@ -6,8 +6,8 @@ from core.cli.python_cli.features.context.common import (
     full_context_cleanup,
     graphrag_drop,
 )
-from core.cli.python_cli.shell.state import log_system_action, update_context_state
-from core.cli.python_cli.workflow.runtime import session as ws
+from core.app_state import log_system_action, update_context_state
+from core.runtime import session as ws
 from core.cli.python_cli.workflow.runtime.persist.activity_log import clear_workflow_activity_log
 from core.cli.python_cli.workflow.runtime.graph.runner import resume_workflow
 from core.domain.delta_brief import is_no_context

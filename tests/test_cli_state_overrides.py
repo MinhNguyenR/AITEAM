@@ -5,7 +5,9 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
+import sys
 
+sys.modules.pop("core.cli.python_cli.shell.state", None)
 import core.cli.python_cli.shell.state as state_mod
 
 

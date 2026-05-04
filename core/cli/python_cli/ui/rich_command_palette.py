@@ -12,7 +12,7 @@ from rich.text import Text
 
 from core.cli.python_cli.i18n import t
 from core.cli.python_cli.shell.choice_lists import menu_commands
-from core.cli.python_cli.shell.state import get_cli_settings, is_context_active
+from core.app_state import get_cli_settings, is_context_active
 from core.cli.python_cli.ui.ui import (
     BRIGHT_BLUE,
     PASTEL_BLUE,

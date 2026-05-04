@@ -11,11 +11,12 @@ from typing import Literal
 
 from rich.live import Live
 
-from agents.team_map._team_map import get_graph
 from core.bootstrap import REPO_ROOT
-from core.cli.python_cli.shell.state import log_system_action, update_context_state
+from core.app_state.actions import log_system_action
+from core.app_state.context_state import update_context_state
 from core.cli.python_cli.ui.ui import console
 from core.domain.routing_map import pipeline_nodes_for_tier
+from core.orchestration import get_graph
 from utils.logger import artifact_detail, workflow_event
 
 from ..persist.activity_log import list_recent_activity

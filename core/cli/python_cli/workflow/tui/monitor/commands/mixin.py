@@ -273,7 +273,9 @@ class _CommandsMixin:
             if not raw or raw.lower() in ("n", "no"):
                 self._write(f"[dim]      SKIP[/dim] {t('del.no_regen')}")
                 self._write(f"[dim]      SKIP[/dim] {t('del.clear_prompt')}")
+                self._gate_state = _GATE_WAITING
                 self._post_delete_clear_mode = True
+                self._start_decline_countdown()
             elif raw.lower() in ("y", "yes"):
                 self._attempt_count += 1
                 self._clarif_history = []
@@ -322,7 +324,7 @@ class _CommandsMixin:
         rest  = parts[1].strip() if len(parts) > 1 else ""
 
         try:
-            from core.cli.python_cli.shell.state import log_system_action
+            from core.app_state import log_system_action
             log_system_action("monitor.input", raw[:300])
         except Exception:
             pass

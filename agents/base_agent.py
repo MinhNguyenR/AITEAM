@@ -30,8 +30,12 @@ from agents._knowledge_manager import KnowledgeManager
 logger = logging.getLogger(__name__)
 
 
+def make_openai_client(*, api_key: str, base_url: str) -> OpenAI:
+    return OpenAI(api_key=api_key, base_url=base_url)
+
+
 def _default_prompt_resolver() -> dict:
-    from core.cli.python_cli.shell.state import get_prompt_overrides
+    from core.app_state import get_prompt_overrides
     return get_prompt_overrides()
 
 
@@ -84,7 +88,7 @@ class BaseAgent(ABC):
 
         # OpenRouter client kept as self.client for backward compat (Ambassador uses it directly)
         from core.config.settings import openrouter_base_url as _base_url
-        self.client = OpenAI(
+        self.client = make_openai_client(
             api_key=_config.api_key,
             base_url=_base_url(),
         )

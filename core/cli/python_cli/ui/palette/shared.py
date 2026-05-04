@@ -19,7 +19,6 @@ from prompt_toolkit.styles import BaseStyle, merge_styles
 from prompt_toolkit.styles.defaults import default_ui_style
 from prompt_toolkit.widgets import Frame as CommandPaletteFrame
 
-from prompt_toolkit.layout.containers import ConditionalContainer
 
 from .items import POPUP_WIDTH, build_popup_items
 from .lexer import CommandLexer
@@ -101,10 +100,13 @@ def palette_application_color_depth() -> ColorDepth:
 
 
 def palette_float_kwargs(attach_to_window: Window) -> dict[str, Any]:
+    # bottom=4: float clears the 3-row command area (sep + input + bottom_sep)
+    # plus 1 extra row so the ──── aiteam ──── separator remains fully visible.
+    # Using absolute bottom instead of ycursor works identically in both
+    # full-screen mode and inline (non-full-screen) mode.
     return {
         "left": 2,
-        "ycursor": True,
-        "allow_cover_cursor": False,
+        "bottom": 3,
         "attach_to_window": attach_to_window,
         "hide_when_covering_content": False,
     }
@@ -128,23 +130,3 @@ def command_palette_float_attached(
     )
 
 
-def command_palette_inline_body(
-    *,
-    get_query: Callable[[], str],
-    get_items: Callable[[], List[Tuple[str, str]]],
-    show_filter: Any,
-    width: int = POPUP_WIDTH,
-) -> Any:
-    """Return a ConditionalContainer wrapping a bare Frame, for embedding above
-    the input row in an HSplit (inline / non-full-screen applications).
-
-    When show_filter is False the container collapses to 0 rows, preserving
-    the terminal state printed before the prompt_toolkit Application started.
-    """
-    framed = make_command_palette_body(
-        get_query=get_query,
-        get_items=get_items,
-        width=width,
-        frame_cls=CommandPaletteFrame,
-    )
-    return ConditionalContainer(content=framed, filter=show_filter)

@@ -4,6 +4,7 @@ import sys
 from typing import Any, Dict, Optional, Sequence, Union
 
 from rich.console import Console
+from rich.prompt import Prompt
 from core.cli.python_cli.i18n import t
 
 # Try to import prompt_toolkit
@@ -15,6 +16,10 @@ except ImportError:
 console = Console()
 GLOBAL_BACK = "back"
 GLOBAL_EXIT = "exit"
+
+
+def _read_single_key_blocking() -> str | None:
+    return None
 
 def _erase_empty_enter_line() -> None:
     """Erase the blank line left by pressing Enter on an empty input."""
@@ -39,19 +44,52 @@ def wait_enter(message: Optional[str] = None) -> None:
     except (OSError, UnicodeError):
         pass
     try:
-        if pt_prompt:
+        key = _read_single_key_blocking()
+        if key is not None:
+            return
+    except Exception:
+        pass
+    try:
+        if pt_prompt and _palette_allowed():
             pt_prompt("")
         else:
             input("")
     except (EOFError, KeyboardInterrupt):
         pass
+    except Exception:
+        try:
+            input("")
+        except (EOFError, KeyboardInterrupt):
+            pass
+
+
+def _palette_allowed() -> bool:
+    try:
+        return bool(sys.stdin.isatty() and sys.stdout.isatty())
+    except OSError:
+        return False
+
+
+def _invalid_retry_message() -> str:
+    msg = t("ui.invalid_retry")
+    if "invalid" in msg.lower():
+        return msg
+    return f"Invalid choice. {msg}"
+
+
+def _basic_prompt_input(prompt_text: str) -> str:
+    try:
+        return Prompt.ask(prompt_text, default="")
+    except Exception:
+        console.print(prompt_text, end="")
+        return input()
 
 def ask_choice(
     prompt: Union[str, Any],
     choices: Sequence[str],
     *,
     default: Optional[str] = None,
-    show_default: bool = True,
+    show_default: bool = False,
     allow_global: bool = True,
     number_map: Optional[Dict[str, str]] = None,
     context: str = "main",
@@ -75,18 +113,20 @@ def ask_choice(
 
     while True:
         from rich.markup import escape as _esc
-        suffix = f" [dim]\[[/dim][bold]{_esc(d)}[/bold][dim]][/dim]" if show_default and d else ""
+        suffix = f" [dim]\\[[/dim][bold]{_esc(d)}[/bold][dim]][/dim]" if show_default and d else ""
         prompt_text = f"{prompt}{suffix} "
         
         try:
-            if pt_prompt:
+            if pt_prompt and _palette_allowed():
                 from core.cli.python_cli.ui.palette_app import ask_with_palette
                 from rich.text import Text
                 raw_prompt = str(Text.from_markup(prompt_text))
-                raw = ask_with_palette(raw_prompt, context=context, default=d, header_ansi=header_ansi)
+                try:
+                    raw = ask_with_palette(raw_prompt, context=context, default=d, header_ansi=header_ansi)
+                except Exception:
+                    raw = _basic_prompt_input(prompt_text)
             else:
-                console.print(prompt_text, end="")
-                raw = input()
+                raw = _basic_prompt_input(prompt_text)
         except (KeyboardInterrupt, EOFError):
             return GLOBAL_BACK
 
@@ -108,12 +148,15 @@ def ask_choice(
         stripped = raw[1:] if raw.startswith('/') else raw
         if stripped in allowed:
             return stripped
+        slashed = f"/{stripped}" if stripped else ""
+        if slashed in allowed:
+            return slashed
 
         if number_map and raw.isdigit():
             mapped = number_map.get(raw)
             if mapped is not None and mapped in allowed:
                 return mapped
         
-        console.print(f"[yellow]{t('ui.invalid_retry')}[/yellow]")
+        console.print(f"[yellow]{_invalid_retry_message()}[/yellow]")
 
 __all__ = ["ask_choice", "normalize_global_command", "wait_enter", "GLOBAL_BACK", "GLOBAL_EXIT"]

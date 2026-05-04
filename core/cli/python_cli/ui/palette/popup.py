@@ -4,7 +4,6 @@ from typing import Any, Callable, List, Tuple
 
 from prompt_toolkit.layout.containers import ConditionalContainer, Float, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.layout.dimension import Dimension as D
 from prompt_toolkit.widgets import Frame
 
 from core.cli.python_cli.i18n import t
@@ -16,7 +15,6 @@ from .items import (
     render_popup_text,
 )
 
-_POPUP_MIN_HEIGHT = 16
 
 
 def make_command_palette_body(
@@ -34,7 +32,7 @@ def make_command_palette_body(
     body = Window(
         content=FormattedTextControl(_body_text),
         style=ptk_popup_window_style(),
-        height=D(min=_POPUP_MIN_HEIGHT),
+        dont_extend_height=True,
     )
     return frame_cls(
         body=body,
@@ -62,7 +60,7 @@ def make_command_palette_float(
     body = Window(
         content=FormattedTextControl(_body_text),
         style=ptk_popup_window_style(),
-        height=D(min=_POPUP_MIN_HEIGHT),
+        dont_extend_height=True,
     )
     framed = frame_cls(
         body=body,

@@ -95,21 +95,21 @@ class TestGetWorker:
         assert result is None
 
     def test_returns_dict_for_valid_worker(self, cfg):
-        with patch("core.cli.python_cli.shell.state.get_model_overrides", return_value={}), \
-             patch("core.cli.python_cli.shell.state.get_prompt_overrides", return_value={}):
+        with patch("core.app_state.get_model_overrides", return_value={}), \
+             patch("core.app_state.get_prompt_overrides", return_value={}):
             result = cfg.get_worker("LEADER_MEDIUM")
         assert result is not None
         assert "model" in result
 
     def test_applies_model_override(self, cfg):
-        with patch("core.cli.python_cli.shell.state.get_model_overrides", return_value={"LEADER_MEDIUM": "custom-model"}), \
-             patch("core.cli.python_cli.shell.state.get_prompt_overrides", return_value={}):
+        with patch("core.app_state.get_model_overrides", return_value={"LEADER_MEDIUM": "custom-model"}), \
+             patch("core.app_state.get_prompt_overrides", return_value={}):
             result = cfg.get_worker("LEADER_MEDIUM")
         assert result["model"] == "custom-model"
         assert result["is_overridden"] is True
 
     def test_import_error_sets_not_overridden(self, cfg):
-        with patch.dict("sys.modules", {"core.cli.python_cli.shell.state": None}):
+        with patch.dict("sys.modules", {"core.app_state": None}):
             result = cfg.get_worker("LEADER_MEDIUM")
         assert result is not None
         assert result["is_overridden"] is False
@@ -135,15 +135,15 @@ class TestGetFallbackWorker:
 
 class TestListWorkers:
     def test_returns_list(self, cfg):
-        with patch("core.cli.python_cli.shell.state.get_model_overrides", return_value={}), \
-             patch("core.cli.python_cli.shell.state.get_prompt_overrides", return_value={}):
+        with patch("core.app_state.get_model_overrides", return_value={}), \
+             patch("core.app_state.get_prompt_overrides", return_value={}):
             result = cfg.list_workers()
         assert isinstance(result, list)
         assert len(result) > 0
 
     def test_each_entry_has_required_keys(self, cfg):
-        with patch("core.cli.python_cli.shell.state.get_model_overrides", return_value={}), \
-             patch("core.cli.python_cli.shell.state.get_prompt_overrides", return_value={}):
+        with patch("core.app_state.get_model_overrides", return_value={}), \
+             patch("core.app_state.get_prompt_overrides", return_value={}):
             result = cfg.list_workers()
         for entry in result:
             assert "id" in entry
@@ -151,7 +151,7 @@ class TestListWorkers:
             assert "role" in entry
 
     def test_import_error_uses_empty_overrides(self, cfg):
-        with patch.dict("sys.modules", {"core.cli.python_cli.shell.state": None}):
+        with patch.dict("sys.modules", {"core.app_state": None}):
             result = cfg.list_workers()
         assert isinstance(result, list)
 

@@ -15,7 +15,7 @@ _PATCHES = {
         PASTEL_BLUE="blue", clear_screen=MagicMock(), console=_DUMMY_CONSOLE
     ),
     "core.cli.python_cli.shell.nav": MagicMock(NavToMain=Exception),
-    "core.cli.python_cli.shell.state": MagicMock(log_system_action=MagicMock()),
+    "core.app_state": MagicMock(log_system_action=MagicMock()),
     "core.cli.python_cli.features.ask.history_renderer": MagicMock(_ask_input_with_header=MagicMock()),
     "core.cli.python_cli.features.ask.model_selector": MagicMock(
         _chat_model_settings=MagicMock(return_value=("gpt-4", 2048, 0.7, 1.0))
@@ -32,6 +32,9 @@ from core.cli.python_cli.features.ask.chat_manager import (
     _parse_index_list,
     _resolve_chat_name,
 )
+
+# Avoid leaking dependency stubs into later test modules.
+sys.modules.pop("core.app_state", None)
 
 
 class TestIsTempChatName:

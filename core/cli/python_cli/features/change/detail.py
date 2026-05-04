@@ -9,7 +9,7 @@ from rich.prompt import Prompt
 from rich.style import Style
 from rich.table import Table
 
-from core.cli.python_cli.shell.prompt import wait_enter
+from core.cli.python_cli.shell.prompt import GLOBAL_BACK, GLOBAL_EXIT, ask_choice, wait_enter
 from core.cli.python_cli.features.change.helpers import indexed_workers, prompt_panel_content, score_bar
 from core.cli.python_cli.shell.nav import NavToMain
 from core.cli.python_cli.shell.state import (
@@ -189,12 +189,6 @@ def show_role_detail(role_key: str) -> None:
             )
         console.print()
 
-        console.print(
-            f"[{PASTEL_LAVENDER}]{_t('info.cmd_label')}[/{PASTEL_LAVENDER}] "
-            f"[bold]/model[/bold] | [bold]/free[/bold] | "
-            f"[bold]/prompt[/bold] | [bold]/sampling[/bold] | "
-            f"[bold]/reset[/bold] | [bold]/back[/bold]"
-        )
         try:
             choice = ask_choice(
                 f"[bold {PASTEL_CYAN}]{role_key}[/bold {PASTEL_CYAN}]",
@@ -294,7 +288,7 @@ def show_role_detail(role_key: str) -> None:
             wait_enter(_t("ui.wait_enter"))
             continue
 
-        console.print(f"[yellow]{_t('cmd.invalid_cmd').format(cmd=cmd)}[/yellow]")
+        console.print(f"[yellow]{_t('cmd.invalid_cmd').format(cmd=choice)}[/yellow]")
         wait_enter(_t("ui.wait_enter"))
 
 

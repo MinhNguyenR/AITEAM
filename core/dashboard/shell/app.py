@@ -8,11 +8,10 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.style import Style
 from rich.table import Table
-from rich.text import Text
 
 from core.cli.python_cli.shell.prompt import GLOBAL_BACK, GLOBAL_EXIT, ask_choice, normalize_global_command
 from core.cli.python_cli.shell.nav import NavToMain
-from core.cli.python_cli.shell.state import load_context_state, save_context_state
+from core.app_state.context_state import load_context_state, save_context_state
 from core.cli.python_cli.ui.ui import PASTEL_BLUE, PASTEL_CYAN, PASTEL_LAVENDER, SOFT_WHITE, BRIGHT_BLUE, clear_screen
 from core.cli.python_cli.i18n import t
 from utils import tracker
@@ -122,19 +121,6 @@ def _show_home(settings: dict, rs: DashboardRangeState) -> None:
             )
         _panel(t("dash.recent_title").format(n=len(batches), label=rs.label), tbl, border=PASTEL_LAVENDER)
 
-    # Command hint
-    hint = Text.assemble(
-        ("  /history  ", Style(color=PASTEL_CYAN, bold=True)),
-        (f"{t('dash.history_label')}   ", Style(color=SOFT_WHITE, dim=True)),
-        ("  /total    ", Style(color=PASTEL_CYAN, bold=True)),
-        (f"{t('dash.total_label')}   ", Style(color=SOFT_WHITE, dim=True)),
-        ("  /budget   ", Style(color=PASTEL_CYAN, bold=True)),
-        (f"{t('dash.budget_label')}", Style(color=SOFT_WHITE, dim=True)),
-    )
-    console.print(hint)
-    console.print()
-    console.print(f"  [dim]/back[/dim]  {t('nav.back')}")
-    console.print()
 
 
 def _loop(settings: dict, rs: DashboardRangeState) -> None:

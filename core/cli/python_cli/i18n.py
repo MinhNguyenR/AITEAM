@@ -45,10 +45,14 @@ DEFAULT_STRINGS: dict[str, dict[str, str]] = {
         "cmd.sampling":          "Chỉnh sampling | Adjust sampling",
         "cmd.reset":             "Reset mặc định | Reset to default",
         "cmd.free":              "Tìm model free | Find free models",
+        "cmd.enter":             "Xem chi tiết role | View role detail",
         "cmd.run":               "Thực thi pipeline | Run pipeline",
         "cmd.edit":              "Sửa trên editor | Edit in IDE",
         "cmd.delete":            "Xóa và hủy bỏ | Delete and cancel",
         "cmd.regenerate":        "Tạo lại context | Regenerate",
+        "cmd.accept":            "Chấp nhận context | Accept context",
+        "cmd.ask_mode":          "Chế độ hỏi đáp | Ask mode",
+        "cmd.agent_mode":        "Chế độ agent | Agent mode",
         "nav.invalid_choice":    "Lựa chọn không hợp lệ",
         "nav.range_hint":        "Nhập số 1–{max} để chi tiết",
         "ui.loading":            "Đang tải…",
@@ -514,10 +518,14 @@ DEFAULT_STRINGS: dict[str, dict[str, str]] = {
         "cmd.sampling":          "Chỉnh sampling | Adjust sampling",
         "cmd.reset":             "Reset mặc định | Reset to default",
         "cmd.free":              "Tìm model free | Find free models",
+        "cmd.enter":             "View role detail",
         "cmd.run":               "Thực thi pipeline | Run pipeline",
         "cmd.edit":              "Sửa trên editor | Edit in IDE",
         "cmd.delete":            "Xóa và hủy bỏ | Delete and cancel",
         "cmd.regenerate":        "Tạo lại context | Regenerate",
+        "cmd.accept":            "Accept context",
+        "cmd.ask_mode":          "Ask mode",
+        "cmd.agent_mode":        "Agent mode",
         "nav.invalid_choice":    "Invalid choice",
         "nav.range_hint":        "Enter 1–{max} for details",
         "ui.loading":            "Loading…",
@@ -974,7 +982,7 @@ _STRINGS = _load_strings()
 def t(key: str) -> str:
     """Return localized string for key based on display_language setting."""
     try:
-        from core.cli.python_cli.shell.state import get_cli_settings
+        from core.app_state import get_cli_settings
         lang = str(get_cli_settings().get("display_language") or _FALLBACK_LANG)
     except Exception:
         lang = _FALLBACK_LANG

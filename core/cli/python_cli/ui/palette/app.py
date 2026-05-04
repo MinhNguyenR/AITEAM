@@ -5,14 +5,13 @@ from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.formatted_text import ANSI, to_formatted_text
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
-from prompt_toolkit.layout.containers import FloatContainer, HSplit, Window
+from prompt_toolkit.layout.containers import ConditionalContainer, FloatContainer, HSplit, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension as D
 from .footer import markup_to_ansi
 from .items import POPUP_WIDTH
 from .shared import (
     command_palette_float_attached,
-    command_palette_inline_body,
     palette_application_color_depth,
     palette_application_style,
     palette_autocomplete_snapshot,
@@ -117,10 +116,8 @@ def ask_with_palette(
     _show_popup = palette_popup_show_condition(lambda: state["autocomplete_active"])
 
     if header_ansi:
-        # ── Full-screen mode (main menu) ──────────────────────────────────────
-        # Float overlay above the input; menu content rendered in fill area so
-        # the user always sees the menu while typing.
-        _header_ansi = header_ansi  # stable closure capture
+        # Full-screen mode (main menu): Float overlay above the fill area.
+        _header_ansi = header_ansi
         _fill = Window(
             content=FormattedTextControl(
                 lambda: to_formatted_text(ANSI(_header_ansi)),
@@ -135,28 +132,27 @@ def ask_with_palette(
             width=POPUP_WIDTH,
             attach_to_window=_attach_win,
         )
+        body = HSplit([_fill, sep_window, input_row, bottom_sep_window])
         layout = Layout(
-            FloatContainer(
-                content=HSplit([_fill, sep_window, input_row, bottom_sep_window]),
-                floats=[popup_float],
-            ),
+            FloatContainer(content=body, floats=[popup_float]),
             focused_element=main_buffer,
         )
         _full_screen = True
     else:
-        # ── Inline mode (sub-pages: dashboard, settings, …) ──────────────────
-        # ConditionalContainer sits above the input; collapses when inactive so
-        # the Rich-rendered sub-page content above is never cleared.
-        popup_body = command_palette_inline_body(
+        # Inline mode (sub-CLIs): ConditionalContainer above the command area.
+        # In ptk inline mode the app is anchored at the terminal bottom.
+        # When the popup activates the app grows UPWARD — command line stays
+        # pinned at the bottom and the box appears above it, exactly like
+        # the shadow-box seen in the workflow TUI.
+        from .popup import make_command_palette_body
+        popup_frame = make_command_palette_body(
             get_query=lambda: main_buffer.text,
             get_items=lambda: state["autocomplete_items"],
-            show_filter=_show_popup,
             width=POPUP_WIDTH,
         )
-        layout = Layout(
-            HSplit([popup_body, sep_window, input_row, bottom_sep_window]),
-            focused_element=main_buffer,
-        )
+        popup_cc = ConditionalContainer(content=popup_frame, filter=_show_popup)
+        body = HSplit([popup_cc, sep_window, input_row, bottom_sep_window])
+        layout = Layout(body, focused_element=main_buffer)
         _full_screen = False
 
     app = Application(

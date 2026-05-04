@@ -25,7 +25,7 @@ Use it to give context-aware answers about the codebase, architecture, and ongoi
 - Ask chat picker: `create`, `delete N`, `delete N M`, `delete all`, `rename N <name>`, `back`, `exit`
 - Context viewer (check): `back`, `edit`, `delete`, `run`, `regenerate`, `exit`
 - Workflow monitor: `/ask <question>`, `/agent <task>`, `/btw <note>`, `check`, `accept`, `delete`, `log`, `info`, `exit`
-- Settings: `1` toggle auto-accept, `2` cycle context action (ask/accept/decline), `3` toggle help terminal, `0/back`, `exit`
+- Settings: `1` toggle auto-accept, `2` cycle context action (`ask/accept/decline`), `3` toggle help external terminal, `0/back`, `exit`
 - Dashboard: `history`, `total`, `budget`, `back/0`, `exit`
 
 ## Behavior

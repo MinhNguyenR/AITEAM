@@ -12,7 +12,7 @@ from core.cli.python_cli.shell.prompt import ask_choice
 from core.cli.python_cli.shell.safe_editor import run_editor_on_file
 from core.cli.python_cli.features.context.common import full_context_cleanup, graphrag_drop
 from core.cli.python_cli.shell.nav import NavToMain
-from core.cli.python_cli.shell.state import log_system_action, update_context_state
+from core.app_state import log_system_action, update_context_state
 from core.cli.python_cli.ui.ui import BRIGHT_BLUE, PASTEL_BLUE, PASTEL_CYAN, PASTEL_LAVENDER, clear_screen, console, print_divider, print_header
 from core.cli.python_cli.i18n import t
 
@@ -34,19 +34,12 @@ def confirm_context(context_path: Path) -> ContextConfirmResult:
         display_content += f"\n\n[dim]{t('context.lines_hidden').format(n=line_count - 120)}[/dim]"
     console.print(Panel(Markdown(display_content), title=f"[bold {PASTEL_CYAN}]context.md[/bold {PASTEL_CYAN}]", border_style=PASTEL_BLUE, padding=(1, 2), box=ROUNDED))
     console.print()
-    print_divider(t("context.decision"))
-    console.print(f"  [bold green]/accept[/bold green]     {t('context.accept_desc')}")
-    console.print(f"  [bold]/edit[/bold]       {t('context.edit_desc')}")
-    console.print(f"  [bold]/regenerate[/bold] {t('context.regen_desc')}")
-    console.print(f"  [bold]/back[/bold]       {t('context.back_desc')}")
-    console.print(f"  [bold red]/delete[/bold red]     {t('context.delete_desc')}")
-    console.print()
     while True:
         choice = ask_choice(
             f"[{PASTEL_CYAN}]{t('ui.choice')}[/{PASTEL_CYAN}]",
             ["/accept", "/edit", "/regenerate", "/back", "/delete", "/exit"],
             default="/accept",
-            context="context_confirm"
+            context="context_confirm",
         ).lower()
         if choice in ("exit", "/exit"):
             raise NavToMain

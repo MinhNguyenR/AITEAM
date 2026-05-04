@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from agents.team_map._team_map import get_graph
+from core.orchestration import get_graph
 from ..persist.checkpointer import get_checkpointer
 from .. import session as ws
 

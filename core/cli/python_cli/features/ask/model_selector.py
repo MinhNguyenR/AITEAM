@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from agents._api_client import make_openai_client
 
-from core.cli.python_cli.shell.state import log_system_action
+from core.app_state import log_system_action
 from core.config import config
 from core.config.settings import openrouter_base_url
 from utils.budget_guard import ensure_dashboard_budget_available
 
 
 def _chat_model_settings(mode: str) -> tuple[str, int, float, float]:
-    from core.cli.python_cli.shell.state import get_sampling_overrides
+    from core.app_state import get_sampling_overrides
 
     worker_id = "CHAT_MODEL_THINKING" if mode == "thinking" else "CHAT_MODEL_STANDARD"
     cfg = config.get_worker(worker_id) or {}

@@ -7,7 +7,7 @@ from rich.panel import Panel
 
 from core.cli.python_cli.shell.prompt import GLOBAL_BACK, GLOBAL_EXIT, ask_choice
 from core.cli.python_cli.shell.nav import NavToMain
-from core.cli.python_cli.shell.state import save_cli_settings
+from core.app_state.settings import save_cli_settings
 from core.cli.python_cli.ui.ui import clear_screen
 from core.cli.python_cli.i18n import t
 

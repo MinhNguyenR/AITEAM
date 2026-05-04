@@ -18,14 +18,19 @@ from core.cli.python_cli.shell.prompt import GLOBAL_BACK, GLOBAL_EXIT, ask_choic
 from core.cli.python_cli.features.change.flow import pick_role_key_from_indexed_workers, show_role_detail
 from core.cli.python_cli.shell.command_registry import help_screen_markdown, MAIN_MENU_VALID_CHOICES, MAIN_PROMPT_LABEL
 from core.cli.python_cli.features.context.flow import find_context_md, is_no_context, show_context as _show_context_flow
-from core.cli.python_cli.features.dashboard.flow import show_dashboard
+from core.frontends.dashboard import show_dashboard
 from core.cli.python_cli.ui.rich_command_palette import capture_menu_ansi, render_command_palette
 from core.cli.python_cli.features.settings.flow import show_settings
 from core.cli.python_cli.ui.help_terminal import spawn_help_in_new_terminal
 from core.cli.python_cli.features.start.flow import run_start as _run_start_flow
 from core.cli.python_cli.shell.monitor_queue_drain import drain_monitor_command_queue
 from core.cli.python_cli.shell.nav import NavToMain
-from core.cli.python_cli.shell.state import get_cli_settings, get_model_overrides, get_prompt_overrides, log_system_action
+from core.app_state import (
+    get_cli_settings,
+    get_model_overrides,
+    get_prompt_overrides,
+    log_system_action,
+)
 from core.cli.python_cli.ui.ui import (
     PASTEL_BLUE, PASTEL_CYAN, SOFT_WHITE,
     clear_screen, console, get_framework_config, print_header,
@@ -112,7 +117,7 @@ def show_status():
     fw_tbl.add_row(t('status.cli_runtime'), f"Python {fw.get('python', 'unknown')}")
     console.print(Panel(fw_tbl, title=f"[bold]{t('status.fw_config')}[/bold]", border_style=PASTEL_BLUE, box=ROUNDED))
 
-    from core.cli.python_cli.workflow.runtime import session as _ws
+    from core.runtime import session as _ws
     from utils.file_manager import ensure_ask_data_dir, ensure_workflow_dir
     ask_db  = ensure_ask_data_dir() / "ask_history.db"
     wf_log  = ensure_workflow_dir() / "workflow_activity.log"
@@ -136,11 +141,8 @@ def show_status():
     pt.add_row(t('info.prompt_title') + " overrides", str(n_po))
     console.print(Panel(pt, title=f"[bold]{t('status.paths')}[/bold]", border_style=PASTEL_BLUE, box=ROUNDED))
     console.print()
-    console.print(f"[dim]{t('nav.back')} · {t('nav.exit')}[/dim]")
-    console.print()
-
     while True:
-        c = ask_choice(f"[{PASTEL_CYAN}]>[/{PASTEL_CYAN}]", ["back", "exit"], default="back")
+        c = ask_choice(f"[{PASTEL_CYAN}]>[/{PASTEL_CYAN}]", ["back", "exit"], default="back", context="status")
         if c == "exit":
             raise NavToMain
         clear_screen()
@@ -201,7 +203,7 @@ def show_help():
         )
     )
     console.print()
-    c = ask_choice(f"[{PASTEL_CYAN}]>[/{PASTEL_CYAN}]", ["back", "exit"], default="back")
+    c = ask_choice(f"[{PASTEL_CYAN}]>[/{PASTEL_CYAN}]", ["back", "exit"], default="back", context="help")
     if c == "exit":
         raise NavToMain
     clear_screen()
@@ -270,8 +272,8 @@ def main_loop():
 
 
 def run_workflow():
-    from core.cli.python_cli.workflow.runtime import session as ws
-    from core.cli.python_cli.workflow.tui.monitor import run_workflow_list_view
+    from core.runtime import session as ws
+    from core.frontends.tui import run_workflow_list_view
 
     snap = ws.get_pipeline_snapshot()
     if snap.get("ambassador_status") == "running" or snap.get("active_step") != "idle":

@@ -233,7 +233,7 @@ class APIClient:
         # Import session module once; guard against unavailability (tests, etc.)
         _ws = None
         try:
-            from core.cli.python_cli.workflow.runtime import session as _ws_mod
+            from core.runtime import session as _ws_mod
             _ws = _ws_mod
         except LookupError:
             pass
@@ -478,7 +478,7 @@ class APIClient:
 
         # Estimate prompt tokens for UI feedback before OpenRouter sends the final usage chunk
         try:
-            from core.cli.python_cli.workflow.runtime import session as _ws_mod
+            from core.runtime import session as _ws_mod
             estimated_pt = sum(len(str(m.get("content", ""))) for m in messages) // 4
             _ws_mod.set_stream_prompt_tokens(estimated_pt)
         except Exception:

@@ -16,8 +16,8 @@ from core.cli.python_cli.features.context.common import (
     graphrag_drop,
 )
 from core.cli.python_cli.shell.nav import NavToMain
-from core.cli.python_cli.shell.state import load_context_state, log_system_action, update_context_state
-from core.cli.python_cli.workflow.runtime import session as ws
+from core.app_state import load_context_state, log_system_action, update_context_state
+from core.runtime import session as ws
 from core.cli.python_cli.workflow.runtime.graph.runner import resume_workflow
 from core.cli.python_cli.ui.ui import PASTEL_BLUE, PASTEL_CYAN, clear_screen, console, print_header
 from core.cli.python_cli.i18n import t
@@ -78,15 +78,6 @@ def show_context(project_root: str, start_runner: Callable[[str], None]) -> None
     console.print(Panel(Markdown(display), title=f"[bold {PASTEL_CYAN}]context.md[/bold {PASTEL_CYAN}]", border_style=PASTEL_BLUE, padding=(1, 2), box=ROUNDED))
     console.print()
     while True:
-        opts_labels = [
-            f"[bold]/back[/bold]",
-            f"[bold]/edit[/bold]",
-            f"[bold red]/delete[/bold red]",
-            f"[bold green]/run[/bold green]",
-            f"[bold]/regenerate[/bold]",
-            f"[bold]/exit[/bold]"
-        ]
-        console.print(f"[{PASTEL_CYAN}]{t('ui.options')}[/{PASTEL_CYAN}] {' | '.join(opts_labels)}")
         choice = ask_choice(t("ui.choice"), ["/back", "/exit", "/run", "/edit", "/delete", "/regenerate"], default="/back", context="context_viewer")
         if choice in ("exit", "/exit"):
             clear_screen()

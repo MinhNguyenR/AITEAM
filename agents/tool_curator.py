@@ -185,14 +185,14 @@ class ToolCurator(BaseAgent):
 
     def _set_substate(self, substate: str, detail: str = "") -> None:
         try:
-            from core.cli.python_cli.workflow.runtime import session as ws
+            from core.runtime import session as ws
             ws.set_curator_substate(substate, detail)
         except (ImportError, RuntimeError):
             pass
 
     def _clear_substate(self) -> None:
         try:
-            from core.cli.python_cli.workflow.runtime import session as ws
+            from core.runtime import session as ws
             ws.clear_curator_substate()
         except (ImportError, RuntimeError):
             pass

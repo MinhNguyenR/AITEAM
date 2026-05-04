@@ -13,28 +13,32 @@ from core.cli.python_cli.ui.ui import PASTEL_BLUE, PASTEL_CYAN, PASTEL_LAVENDER,
 from core.cli.python_cli.i18n import t
 
 
-def pick_role_key_from_indexed_workers(workers: list[dict]) -> Optional[str]:
-    if not workers:
-        return None
-    console.print()
-    console.print(
-        f"[{PASTEL_LAVENDER}]{t('nav.range_hint').format(max=len(workers))} | "
-        f"{t('nav.back')} | {t('nav.exit')}[/{PASTEL_LAVENDER}]"
-    )
-    try:
-        from core.cli.python_cli.ui.palette_app import ask_with_palette
-        raw = ask_with_palette(f"{t('nav.choose')} ", context="agent_detail", default="back").strip().lower()
-    except (KeyboardInterrupt, EOFError):
-        return None
+def _resolve_worker_raw(raw: str, workers: list[dict]) -> Optional[str]:
+    """Resolve a raw input string to a worker id. Returns None if unresolved."""
     if raw in ("back", "b", ""):
         return None
     if raw == "exit":
         raise NavToMain
+    # /enter <N> or bare number
+    if raw.startswith("/enter "):
+        raw = raw[len("/enter "):].strip()
     if raw.isdigit():
         idx = int(raw) - 1
         if 0 <= idx < len(workers):
             return workers[idx]["id"]
     return None
+
+
+def pick_role_key_from_indexed_workers(workers: list[dict]) -> Optional[str]:
+    if not workers:
+        return None
+    console.print()
+    try:
+        from core.cli.python_cli.ui.palette_app import ask_with_palette
+        raw = ask_with_palette(f"{t('nav.choose')} ", context="agent_list", default="back").strip().lower()
+    except (KeyboardInterrupt, EOFError):
+        return None
+    return _resolve_worker_raw(raw, workers)
 
 
 def show_change_list() -> Optional[str]:
@@ -66,24 +70,12 @@ def show_change_list() -> Optional[str]:
     console.print()
     console.print(f"[dim]{t('info.ovr')}[/dim]: OVR {t('info.model_override').lower()}  [cyan]P[/cyan] {t('info.prompt_title').lower()} overridden")
     console.print()
-    console.print(
-        f"[{PASTEL_LAVENDER}]{t('info.cmd_label')}[/{PASTEL_LAVENDER}] "
-        f"{t('nav.range_hint').format(max=len(workers))} | {t('nav.back')}"
-    )
     try:
         from core.cli.python_cli.ui.palette_app import ask_with_palette
-        raw = ask_with_palette(f"{t('nav.choose_role')} ", context="agent_detail", default="back").strip().lower()
+        raw = ask_with_palette(f"{t('nav.choose_role')} ", context="agent_list", default="back").strip().lower()
     except (KeyboardInterrupt, EOFError):
         return None
-    if raw in ("back", "b", ""):
-        return None
-    if raw == "exit":
-        raise NavToMain
-    if raw.isdigit():
-        idx = int(raw) - 1
-        if 0 <= idx < len(workers):
-            return workers[idx]["id"]
-    return None
+    return _resolve_worker_raw(raw, workers)
 
 
 __all__ = ["pick_role_key_from_indexed_workers", "show_change_list"]

@@ -43,7 +43,9 @@ def header(title: str) -> None:
 
 
 def fmt_budget_line(name: str, metric: tracker.BudgetMetric) -> str:
-    limit_s = t('unit.unlimited') if metric.unlimited else f"${metric.limit_usd:.2f}"
+    limit_s = "Unlimited" if metric.unlimited else f"${metric.limit_usd:.2f}"
+    if metric.unlimited:
+        return f"{name}: ${metric.spent_usd:.2f} / {limit_s}"
     return f"{name}: ${metric.spent_usd:.2f} / {limit_s} -> {metric.status}"
 
 
@@ -54,7 +56,10 @@ def fmt_budget_value(value: Optional[float]) -> str:
 def ask_budget_value(label: str, current: Optional[float]) -> Optional[float]:
     from core.cli.python_cli.ui.palette_app import ask_with_palette
     prompt = t("dash.budget_prompt").format(label=label, curr=fmt_budget_value(current))
-    raw = ask_with_palette(f"{prompt} ", context="dashboard_budget", default="").strip()
+    try:
+        raw = ask_with_palette(f"{prompt} ", context="dashboard_budget", default="").strip()
+    except Exception:
+        raw = Prompt.ask(f"{prompt} ", default="").strip()
     if raw == "":
         return None
     try:
@@ -95,8 +100,12 @@ def pick_range_rows() -> tuple[str, list[dict], Optional[datetime], Optional[dat
         elif c == "3":
             since, until = now - __import__("datetime").timedelta(days=30), now
         else:
-            a = ask_with_palette(f"{t('dash.range_from')} ", context="dashboard_history")
-            b = ask_with_palette(f"{t('dash.range_to')} ", context="dashboard_history")
+            try:
+                a = ask_with_palette(f"{t('dash.range_from')} ", context="dashboard_history")
+                b = ask_with_palette(f"{t('dash.range_to')} ", context="dashboard_history")
+            except Exception:
+                a = Prompt.ask(f"{t('dash.range_from')} ")
+                b = Prompt.ask(f"{t('dash.range_to')} ")
             try:
                 since = datetime.fromisoformat(a.strip().replace("Z", "+00:00"))
                 until = datetime.fromisoformat(b.strip().replace("Z", "+00:00"))

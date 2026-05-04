@@ -144,12 +144,18 @@ def help_screen_markdown() -> str:
 """.strip()
 
 
+MENU_PALETTE_ROWS = menu_palette_rows()
+HELP_SCREEN_MARKDOWN = help_screen_markdown()
+
+
 __all__ = [
     "MAIN_MENU_BY_NUMBER",
     "MAIN_MENU_ALIASES",
     "MAIN_MENU_VALID_CHOICES",
     "MAIN_PROMPT_LABEL",
     "START_MODE_BY_NUMBER",
+    "MENU_PALETTE_ROWS",
+    "HELP_SCREEN_MARKDOWN",
     "menu_palette_rows",
     "menu_commands",
     "help_screen_markdown",

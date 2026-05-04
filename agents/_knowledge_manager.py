@@ -23,7 +23,11 @@ class KnowledgeManager:
         return self._brain
 
     def search(self, agent_name: str, query: str, max_results: int = 3) -> List[Dict]:
-        results = self.brain.smart_search(query, max_results)
+        try:
+            results = self.brain.smart_search(query, max_results)
+        except Exception as exc:
+            logger.debug("[%s] Knowledge search unavailable: %s", agent_name, exc)
+            return []
         if results:
             logger.info("[%s] Found %d knowledge entries for: %s", agent_name, len(results), query[:50])
         return results

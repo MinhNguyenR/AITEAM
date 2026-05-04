@@ -38,7 +38,7 @@ dev = [
 ]
 
 [project.scripts]
-aiteam = "core.cli.python_cli.entrypoints.app:main_loop"
+aiteam = "core.frontends.cli.app:main_loop"
 
 [tool.setuptools.packages.find]
 where = ["."]

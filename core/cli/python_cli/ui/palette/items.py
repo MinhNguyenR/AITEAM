@@ -154,6 +154,7 @@ def render_popup_text(
                 short_desc = raw if len(raw) <= cap else raw[: cap - 1] + "…"
                 result.append((f"fg:{PALETTE_DESC}", short_desc))
         first = False
+
     return result
 
 

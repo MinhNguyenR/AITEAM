@@ -7,10 +7,6 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# In-memory cache so we never mutate os.environ with the vault key.
-_cached_key: Optional[str] = None
-
-
 def _normalize_key(raw: str) -> str:
     return (raw or "").strip()
 
@@ -23,23 +19,17 @@ def _secure_chmod(path: Path) -> None:
 
 
 def load_or_create_vault_key(base_dir: Path) -> Optional[str]:
-    global _cached_key
-
-    if _cached_key:
-        return _cached_key
+    key_file = Path(base_dir) / "vault.key"
 
     env_key = _normalize_key(os.environ.get("AI_TEAM_VAULT_KEY", ""))
     if env_key:
-        _cached_key = env_key
-        return _cached_key
+        return env_key
 
-    key_file = Path(base_dir) / "vault.key"
     try:
         if key_file.is_file():
             existing = _normalize_key(key_file.read_text(encoding="ascii"))
             if existing:
-                _cached_key = existing
-                return _cached_key
+                return existing
     except (OSError, UnicodeDecodeError):
         pass
 
@@ -56,16 +46,14 @@ def load_or_create_vault_key(base_dir: Path) -> Optional[str]:
         generated = Fernet.generate_key().decode("ascii")
         key_file.write_text(generated, encoding="ascii")
         _secure_chmod(key_file)
-        _cached_key = generated
         logger.info("Auto-generated vault key at %s", key_file)
-        return _cached_key
+        return generated
     except OSError as e:
         logger.warning("Failed to persist vault key (%s); using ephemeral key", e)
         try:
             from cryptography.fernet import Fernet as _F
 
-            _cached_key = _F.generate_key().decode("ascii")
-            return _cached_key
+            return _F.generate_key().decode("ascii")
         except (ImportError, ValueError):
             return None
 

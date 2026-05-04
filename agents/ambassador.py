@@ -173,7 +173,7 @@ class Ambassador(BaseAgent):
                 from utils.logger import workflow_event as _wfe
                 _wfe("ambassador", "usage",
                      f"model={self.model_name} prompt_tokens={p_tok} completion_tokens={c_tok}")
-                from core.cli.python_cli.workflow.runtime import session as _ws
+                from core.runtime import session as _ws
                 _ws.set_stream_prompt_tokens(p_tok)
                 _ws.set_stream_completion_tokens(c_tok)
             except Exception:
@@ -251,7 +251,7 @@ class Ambassador(BaseAgent):
 
         # Push initial line so TUI shows feedback during the API call
         try:
-            from core.cli.python_cli.workflow.runtime import session as _ws
+            from core.runtime import session as _ws
             _ws.clear_leader_stream_buffer()
             _ws.append_leader_stream_chunk(f"Analyzing: {user_input[:120]}…")
         except Exception:
@@ -266,7 +266,7 @@ class Ambassador(BaseAgent):
 
         # Replace stream buffer with state.json summary after API completes
         try:
-            from core.cli.python_cli.workflow.runtime import session as _ws
+            from core.runtime import session as _ws
             _ws.clear_leader_stream_buffer()
             _lines = [
                 f"tier: {brief.tier}",

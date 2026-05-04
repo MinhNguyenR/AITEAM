@@ -8,11 +8,11 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 
-from core.cli.python_cli.shell.prompt import GLOBAL_BACK, GLOBAL_EXIT, normalize_global_command, wait_enter
+from core.cli.python_cli.shell.prompt import GLOBAL_BACK, GLOBAL_EXIT, ask_choice, normalize_global_command, wait_enter
 from core.cli.python_cli.shell.nav import NavToMain
-from core.cli.python_cli.ui.ui import clear_screen
+from core.cli.python_cli.ui.ui import PASTEL_CYAN, clear_screen
 from core.cli.python_cli.i18n import t
-from core.dashboard.shell import data as dashboard_data
+from core.dashboard.application import data as dashboard_data
 
 from ..output.exporters import export_excel
 from ..output.pdf_export import export_pdf
@@ -83,7 +83,7 @@ def show_history_browser(range_state: DashboardRangeState) -> None:
         _dashboard_panel(t("dash.history_turns").format(curr=page + 1, total=total_pages), table, border_style="#C8C8FF")
         choice = ask_choice(
             f"[{PASTEL_CYAN}]>[/{PASTEL_CYAN}]",
-            ["/back", "/exit", "/next", "/prev", "/open", "/export"],
+            ["/back", "/exit", "/next", "/prev", "/open", "/export", "back", "exit", "n", "p", "open", "export", "check"],
             default="/back",
             context="dashboard_history"
         )
@@ -92,18 +92,27 @@ def show_history_browser(range_state: DashboardRangeState) -> None:
         if choice in (GLOBAL_BACK, "/back"):
             return
 
-        if choice == "/next":
-            range_state.log_page = min(range_state.log_page + 1, max(0, total_pages - 1))
+        if choice in ("/next", "n"):
+            range_state.log_page += 1
             continue
-        if choice == "/prev":
+        if choice in ("/prev", "p"):
             range_state.log_page = max(0, range_state.log_page - 1)
             continue
-        if choice == "/open":
+        if choice in ("/open", "open", "check"):
             if not batches:
                 console.print(f"[yellow]{t('dash.no_history')}[/yellow]")
                 continue
             from core.cli.python_cli.ui.palette_app import ask_with_palette
-            raw_idx = normalize_global_command(ask_with_palette(t("dash.open_turn_prompt").format(n=len(batches)), context="dashboard_history", default="1"))
+            try:
+                raw_idx = normalize_global_command(
+                    ask_with_palette(
+                        t("dash.open_turn_prompt").format(n=len(batches)),
+                        context="dashboard_history",
+                        default="1",
+                    )
+                )
+            except Exception:
+                raw_idx = normalize_global_command(Prompt.ask(t("dash.open_turn_prompt").format(n=len(batches)), default="1"))
             global_idx = _parse_positive_int(raw_idx, min_value=1, max_value=len(batches))
             if global_idx is not None:
                 clear_screen()
@@ -114,7 +123,7 @@ def show_history_browser(range_state: DashboardRangeState) -> None:
                 console.print(f"[yellow]{t('dash.invalid_turn').format(n=len(batches))}[/yellow]")
                 wait_enter()
             continue
-        if choice == "/export":
+        if choice in ("/export", "export"):
             console.print(f"[cyan]{t('dash.export_pdf_fallback')}[/cyan]")
             from ..reporting.exporter import export_pdf
             export_pdf(Path.cwd(), range_state)

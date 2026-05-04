@@ -12,10 +12,10 @@ from core.cli.python_cli.features.context.flow import (
     apply_context_prepare_regenerate,
 )
 from core.cli.python_cli.shell.monitor_payload import resolve_trusted_project_root, sanitize_monitor_prompt
-from core.cli.python_cli.shell.state import log_system_action
+from core.app_state import log_system_action
 from core.cli.python_cli.ui.ui import console
 from core.cli.python_cli.shell.nav import NavToMain
-from core.cli.python_cli.workflow.runtime import session as ws
+from core.runtime import session as ws
 from core.cli.python_cli.workflow.runtime.graph.runner import rewind_to_checkpoint, rewind_to_last_gate
 from core.config import config
 from core.cli.python_cli.i18n import t
