@@ -1,6 +1,5 @@
 """LangGraph workflow runner: stream, resume, rewind; Rich Live when inline_progress."""
 
-
 from __future__ import annotations
 
 
@@ -45,8 +44,6 @@ AI_TEAM_ROOT = REPO_ROOT
 RunOutcome = Literal["paused", "completed", "failed"]
 
 
-
-
 def spawn_workflow_monitor(view_mode: str = "chain") -> bool:
     mode = "list" if str(view_mode).lower() == "list" else "chain"
     cmd = [sys.executable, "-m", "core.cli.python_cli.workflow.tui", "--view", mode]
@@ -62,8 +59,6 @@ def spawn_workflow_monitor(view_mode: str = "chain") -> bool:
     return True
 
 
-
-
 def run_agent_graph(
     brief,
     prompt: str,
@@ -74,12 +69,25 @@ def run_agent_graph(
 ) -> RunOutcome:
     ws.set_workflow_last_view_mode("list")
     ws.set_workflow_project_root(project_root)
+    ws.set_pipeline_run_id(getattr(brief, "task_uuid", None))
+    ws.clear_pipeline_stop()
     ws.clear_leader_stream_buffer()
     tier = str(getattr(brief, "tier", "MEDIUM") or "MEDIUM")
-    fast_path = ((getattr(brief, "parameters", {}) or {}).get("fast_path") if hasattr(brief, "parameters") else None)
-    nodes = ["restore_worker", "finalize_phase1"] if fast_path == "restore" else pipeline_nodes_for_tier(tier)
+    fast_path = (
+        (getattr(brief, "parameters", {}) or {}).get("fast_path")
+        if hasattr(brief, "parameters")
+        else None
+    )
+    nodes = (
+        ["restore_worker", "finalize_phase1"]
+        if fast_path == "restore"
+        else pipeline_nodes_for_tier(tier)
+    )
     ws.set_workflow_list_nodes_state(
-        [{"node": n, "status": "pending", "detail": "", "updated_at": 0.0} for n in nodes]
+        [
+            {"node": n, "status": "pending", "detail": "", "updated_at": 0.0}
+            for n in nodes
+        ]
     )
     if fast_path != "restore":
         ws.update_workflow_node_status("ambassador", "complete", f"tier={tier}")
@@ -88,14 +96,12 @@ def run_agent_graph(
     ws.set_phase_running()
     ws.set_context_accept_status("none")
 
-
     tid = ws.new_thread_id()
     auto = bool(settings.get("auto_accept_context"))
     ib: tuple[str, ...] = () if auto else ("human_context_gate",)
     ws.set_interrupt_before(list(ib))
     ws.set_should_finalize(auto)
     ws.transition_pipeline_begin_run()
-
 
     cp = get_checkpointer()
     graph = get_graph(cp, interrupt_before=ib)
@@ -107,16 +113,13 @@ def run_agent_graph(
         "brief_dict": brief.model_dump(),
     }
 
-
     ws.set_paused_for_review(False)
     ws.set_last_node(None)
     ws.touch_pipeline_busy()
 
-
     first_real_node = "restore_worker" if fast_path == "restore" else "leader_generate"
     ws.set_pipeline_active_step(first_real_node)
     ws.update_workflow_node_status(first_real_node, "running", "starting")
-
 
     ui_style = "list"
     with ExitStack() as stack:
@@ -124,7 +127,9 @@ def run_agent_graph(
         if inline_progress:
             live = stack.enter_context(
                 Live(
-                    inline_workflow_renderable(tier, ws.get_pipeline_status_message() or "", ui_style=ui_style),
+                    inline_workflow_renderable(
+                        tier, ws.get_pipeline_status_message() or "", ui_style=ui_style
+                    ),
                     console=console,
                     refresh_per_second=6,
                     transient=False,
@@ -136,8 +141,10 @@ def run_agent_graph(
                 # Check if TUI requested a stop (exit & cleanup)
                 if ws.is_pipeline_stop_requested():
                     logger.info("Pipeline stop requested -- breaking stream loop")
-                    ws.set_pipeline_graph_failed(False)
-                    ws.reset_pipeline_visual()
+                    ws.request_pipeline_abort(
+                        "stop requested",
+                        run_id=getattr(brief, "task_uuid", None),
+                    )
                     return "failed"
                 for node_name in event:
                     name = _normalize_stream_node_key(node_name)
@@ -158,6 +165,20 @@ def run_agent_graph(
                     ws.set_pipeline_active_step(name)
                     ws.update_workflow_node_status(name, "complete", "done")
                     workflow_event(name, "node_complete", "done")
+                    try:
+                        from core.storage.memory_coordinator import MemoryCoordinator
+
+                        MemoryCoordinator().on_workflow_step(
+                            tid,
+                            {
+                                "node": name,
+                                "task_uuid": getattr(brief, "task_uuid", ""),
+                                "project_root": project_root,
+                                "event": event.get(node_name),
+                            },
+                        )
+                    except Exception:
+                        logger.debug("memory coordinator workflow hook skipped", exc_info=True)
                     ws.set_pipeline_status_message(f"Da chay xong node: {name}")
                     ws.set_pipeline_toast(f"Da chay xong: {name}", seconds=3.0)
                     current_nodes = ws.get_workflow_list_nodes_state()
@@ -169,7 +190,9 @@ def run_agent_graph(
                     if idx >= 0 and idx + 1 < len(node_order):
                         next_node = node_order[idx + 1]
                         if str(next_node).lower() != "finalize_phase1":
-                            ws.update_workflow_node_status(next_node, "running", "processing")
+                            ws.update_workflow_node_status(
+                                next_node, "running", "processing"
+                            )
                     if live is not None:
                         live.update(
                             inline_workflow_renderable(
@@ -192,13 +215,21 @@ def run_agent_graph(
             ws.set_pipeline_status_message("Loi pipeline - xem log")
             return "failed"
 
+        if ws.is_pipeline_stop_requested():
+            ws.request_pipeline_abort("stop requested", run_id=getattr(brief, "task_uuid", None))
+            return "failed"
 
         snap = graph.get_state(config)
         vals = (snap.values or {}) if snap else {}
         ctx = vals.get("context_path")
         if snap.next:
             if ctx:
-                update_context_state("active", Path(ctx), reason="generated", task_uuid=getattr(brief, "task_uuid", ""))
+                update_context_state(
+                    "active",
+                    Path(ctx),
+                    reason="generated",
+                    task_uuid=getattr(brief, "task_uuid", ""),
+                )
                 ws.set_paused_for_review(True, str(ctx))
                 ws.push_pipeline_notification(
                     "context.md san sang",
@@ -212,27 +243,43 @@ def run_agent_graph(
             ws.set_phase_paused_gate()
             ws.set_context_accept_status("pending")
             ws.set_pipeline_active_step("human_context_gate")
-            ws.update_workflow_node_status("human_context_gate", "running", "paused for review")
+            ws.update_workflow_node_status(
+                "human_context_gate", "running", "paused for review"
+            )
             log_system_action("workflow.graph", "outcome=paused")
             workflow_event(
                 "human_context_gate",
                 "paused_review",
-                artifact_detail(ctx, task_id=getattr(brief, "task_uuid", ""), producer_node="human_context_gate") if ctx else "paused without context.md",
+                artifact_detail(
+                    ctx,
+                    task_id=getattr(brief, "task_uuid", ""),
+                    producer_node="human_context_gate",
+                )
+                if ctx
+                else "paused without context.md",
             )
             ws.set_pipeline_status_message("Cho review human_context_gate")
             return "paused"
 
-
         if vals.get("leader_failed") or (not ctx and tier != "LOW"):
             ws.set_pipeline_graph_failed(True)
-            ws.update_workflow_node_status("runner", "error", "leader_failed / missing context_path")
+            ws.update_workflow_node_status(
+                "runner", "error", "leader_failed / missing context_path"
+            )
             log_system_action("workflow.graph", "outcome=failed")
-            workflow_event("runner", "outcome_failed", "leader_failed hoac thieu context_path")
+            workflow_event(
+                "runner", "outcome_failed", "leader_failed hoac thieu context_path"
+            )
             ws.set_pipeline_status_message("Pipeline that bai (leader / context)")
-            recent = list_recent_activity(limit=80, min_ts=ws.get_workflow_activity_min_ts() or None)
-            has_state = any(str(r.get("action", "")) == "state_json_written" for r in recent)
+            recent = list_recent_activity(
+                limit=80, min_ts=ws.get_workflow_activity_min_ts() or None
+            )
+            has_state = any(
+                str(r.get("action", "")) == "state_json_written" for r in recent
+            )
             has_leader_enter = any(
-                str(r.get("node", "")) == "leader_generate" and str(r.get("action", "")) == "enter"
+                str(r.get("node", "")) == "leader_generate"
+                and str(r.get("action", "")) == "enter"
                 for r in recent
             )
             if not has_state or not has_leader_enter:
@@ -244,19 +291,24 @@ def run_agent_graph(
                 )
             return "failed"
 
-
         ws.transition_pipeline_finish(failed=False)
         ws.set_pipeline_stop_phase("idle")
-        ws.update_workflow_node_status("finalize_phase1", "complete", "pipeline completed")
+        ws.update_workflow_node_status(
+            "finalize_phase1", "complete", "pipeline completed"
+        )
         log_system_action("workflow.graph", "outcome=completed")
         if ctx:
-            workflow_event("runner", "outcome_completed", artifact_detail(ctx, task_id=getattr(brief, "task_uuid", ""), producer_node="runner"))
+            workflow_event(
+                "runner",
+                "outcome_completed",
+                artifact_detail(
+                    ctx, task_id=getattr(brief, "task_uuid", ""), producer_node="runner"
+                ),
+            )
         else:
             workflow_event("runner", "outcome_completed", "status=done")
         ws.set_pipeline_status_message("Pipeline hoan tat")
         return "completed"
-
-
 
 
 __all__ = [

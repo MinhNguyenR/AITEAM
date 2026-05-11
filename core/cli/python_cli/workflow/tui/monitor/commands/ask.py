@@ -1,9 +1,8 @@
 """Inline ask handler (extracted from _commands_mixin)."""
 from __future__ import annotations
 
-import threading
-
 from ..core._constants import _SPINNER
+from .._task_pool import submit_monitor_task
 from core.cli.python_cli.i18n import t
 
 
@@ -67,8 +66,8 @@ def handle_ask_inline(app, question: str) -> None:
         except Exception as e:
             def _err():
                 app._ask_thinking = False
-                app._write(f"[red]✗ {t('cmd.ask_error')}: {e}[/red]")
+                app._write(f"[red]X {t('cmd.ask_error')}: {e}[/red]")
                 if app._app: app._app.invalidate()
             app._safe_ui(_err)
 
-    threading.Thread(target=_run, daemon=True).start()
+    submit_monitor_task(_run)

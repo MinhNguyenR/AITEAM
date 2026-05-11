@@ -1,4 +1,4 @@
-﻿"""Mixin: _write, _set_live, _get_all_lines, _replay_history."""
+"""Mixin: _write, _set_live, _get_all_lines, _replay_history."""
 from __future__ import annotations
 
 from ._utils import _r2a

@@ -1,10 +1,10 @@
 """Inline btw handler (extracted from _commands_mixin)."""
 from __future__ import annotations
 
-import threading
 import time
 
 from ..core._constants import _GEN_STEPS, _SPINNER
+from .._task_pool import submit_monitor_task
 from core.cli.python_cli.i18n import t
 
 
@@ -80,7 +80,7 @@ def handle_btw_inline(app, msg: str, snap: dict) -> None:
                     app._write(f"[bold #f7768e]* {t('btw.workflow')}[/bold #f7768e]  [bold]{t('btw.stop_signal')}[/bold]")
                     app._write(f"[dim]+-- {t('btw.stopping')}[/dim]")
                     try:
-                        ws.request_pipeline_stop()
+                        ws.request_pipeline_abort("btw stop")
                     except Exception:
                         pass
                     app._write(f"[dim]+--[/dim] {t('del.clear_prompt')}")
@@ -108,11 +108,11 @@ def handle_btw_inline(app, msg: str, snap: dict) -> None:
         except Exception as e:
             def _err():
                 app._set_live("")
-                app._write(f"[red]✗ {t('btw.error')}: {e}[/red]")
+                app._write(f"[red]X {t('btw.error')}: {e}[/red]")
                 if app._app: app._app.invalidate()
             app._safe_ui(_err)
 
-    threading.Thread(target=_run, daemon=True).start()
+    submit_monitor_task(_run)
 
 
 __all__ = ["handle_btw_inline"]

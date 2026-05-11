@@ -1,10 +1,9 @@
 """Check-view command handler."""
 from __future__ import annotations
 
-import threading
-
 from core.cli.python_cli.i18n import t
 from ..core._constants import _GATE_ACCEPTED, _GATE_DECLINED
+from .._task_pool import submit_monitor_task
 
 
 def handle_check_cmd(app, cmd: str) -> None:
@@ -48,7 +47,7 @@ def handle_check_cmd(app, cmd: str) -> None:
             except Exception:
                 pass
 
-        threading.Thread(target=_accept_bg, daemon=True).start()
+        submit_monitor_task(_accept_bg)
         return
 
     if c in ("/delete", "delete"):

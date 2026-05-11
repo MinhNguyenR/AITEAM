@@ -6,6 +6,7 @@ from .chat import REGISTRY as _CHAT
 from .devops import REGISTRY as _DEVOPS
 from .fixers import REGISTRY as _FIXERS
 from .leaders import REGISTRY as _LEADERS
+from .memory import REGISTRY as _MEMORY
 from .researchers import REGISTRY as _RESEARCHERS
 from .reviewers import REGISTRY as _REVIEWERS
 from .support import REGISTRY as _SUPPORT
@@ -16,6 +17,7 @@ from .workers import REGISTRY as _WORKERS
 REGISTRY: Dict[str, Dict[str, Any]] = {
     **_SYSTEM,
     **_CHAT,
+    **_MEMORY,
     **_LEADERS,
     **_RESEARCHERS,
     **_SUPPORT,

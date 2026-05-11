@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import shutil
 from io import StringIO
@@ -87,6 +87,25 @@ def _capture_history_ansi(range_state: DashboardRangeState) -> tuple[str, list]:
     return sio.getvalue() or " ", batches
 
 
+def _history_total_pages(batches: list) -> int:
+    return max(1, (len(batches) + HISTORY_PAGE_SIZE - 1) // HISTORY_PAGE_SIZE)
+
+
+def _parse_page_step(parts: list[str]) -> int | None:
+    if len(parts) == 1:
+        return 1
+    return _parse_positive_int(parts[1])
+
+
+def _move_history_page(range_state: DashboardRangeState, batches: list, delta: int) -> bool:
+    target = int(range_state.log_page) + delta
+    total_pages = _history_total_pages(batches)
+    if target < 0 or target >= total_pages:
+        return False
+    range_state.log_page = target
+    return True
+
+
 def _do_export(range_state: DashboardRangeState, fmt: str) -> str:
     """Run export and return a one-line result message."""
     cwd = Path.cwd()
@@ -167,7 +186,7 @@ def show_history_browser(range_state: DashboardRangeState) -> None:
         ansi, batches = _capture_history_ansi(range_state)
         choice = ask_choice(
             f"[{PASTEL_CYAN}]>[/{PASTEL_CYAN}]",
-            ["/back", "/exit", "/next", "/prev", "/open", "/export", "/days"],
+            ["/back", "/exit", "/next", "/prev", "n", "p", "/open", "/export", "/days"],
             default="/next",
             context="dashboard_history",
             header_ansi=ansi,
@@ -185,11 +204,19 @@ def show_history_browser(range_state: DashboardRangeState) -> None:
             return
 
         # 2. Pagination
-        if cmd == "/next":
-            range_state.log_page += 1
+        parts = cmd.split()
+        head = parts[0] if parts else cmd
+        if head in ("/next", "n"):
+            step = _parse_page_step(parts)
+            if step is None or not _move_history_page(range_state, batches, step):
+                console.print(f"[yellow]Page does not exist.[/yellow]")
+                wait_enter()
             continue
-        if cmd == "/prev":
-            range_state.log_page = max(0, range_state.log_page - 1)
+        if head in ("/prev", "p"):
+            step = _parse_page_step(parts)
+            if step is None or not _move_history_page(range_state, batches, -step):
+                console.print(f"[yellow]Page does not exist.[/yellow]")
+                wait_enter()
             continue
 
         # 3. Direct Export Handling (/export <fmt>)

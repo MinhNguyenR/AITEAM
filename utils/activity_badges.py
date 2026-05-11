@@ -9,10 +9,10 @@ ACTION_BADGES: dict[str, str] = {
     "outcome_failed": "[bold red][FAIL][/bold red]",
     "graph_start": "[bold blue][START][/bold blue]",
     "graph_error": "[bold red][ERR][/bold red]",
-    "node_complete": "[dim][✓][/dim]",
-    "enter": "[bold cyan][→][/bold cyan]",
-    "done": "[bold green][✓][/bold green]",
-    "failed": "[bold red][✗][/bold red]",
+    "node_complete": "[dim][OK][/dim]",
+    "enter": "[bold cyan][->][/bold cyan]",
+    "done": "[bold green][OK][/bold green]",
+    "failed": "[bold red][X][/bold red]",
     "artifact_deleted_on_rewind": "[bold yellow][REWIND][/bold yellow]",
     "regenerate_started": "[bold cyan][REGEN][/bold cyan]",
 }
@@ -20,7 +20,7 @@ ACTION_BADGES: dict[str, str] = {
 # Human-readable text for (node, action) pairs
 _ACTION_HUMAN: dict[tuple[str, str], str] = {
     ("ambassador", "enter"): "Ambassador bắt đầu phân tích task",
-    ("ambassador", "done"): "Ambassador hoàn thành → tier={detail}",
+    ("ambassador", "done"): "Ambassador hoàn thành -> tier={detail}",
     ("ambassador", "node_complete"): "Ambassador xử lý xong",
     ("runner", "graph_start"): "Pipeline khởi động",
     ("runner", "graph_error"): "Pipeline gặp lỗi",

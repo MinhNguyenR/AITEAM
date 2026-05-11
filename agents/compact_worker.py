@@ -33,7 +33,7 @@ class CompactWorker(BaseAgent):
         cfg = config.get_worker("COMPACT_WORKER") or {}
         super().__init__(
             agent_name="CompactWorker",
-            model_name=cfg.get("model", "x-ai/grok-4.1-fast"),
+            model_name=cfg.get("model", "openai/gpt-4.1-nano"),
             system_prompt=_SYSTEM_PROMPT,
             max_tokens=int(cfg.get("max_tokens", 2048)),
             temperature=float(cfg.get("temperature", 0.6)),
@@ -75,6 +75,57 @@ class CompactWorker(BaseAgent):
         except Exception as e:
             logger.warning("[CompactWorker] compress_state failed: %s", e)
             return f"[compression failed: {e}]"
+
+    def compact_conversation_range(self, convo_id: str, messages: list[dict[str, Any]]) -> dict[str, Any]:
+        text = "\n".join(f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages)
+        prompt = (
+            "Compress this conversation range into a durable memory summary. "
+            "Return concise markdown with decisions, requirements, facts, open questions, and next steps. "
+            "After the summary include JSON-like lines Topics: [...] and Entities: [...].\n\n"
+            f"Conversation: {convo_id}\n{text[:12000]}"
+        )
+        try:
+            body = self.call_api(prompt)
+        except Exception as e:
+            logger.warning("[CompactWorker] compact_conversation_range failed: %s", e)
+            body = _fallback_summary(messages)
+        return {"body": body.strip(), "topics": _extract_terms(body), "entities": _extract_terms(body)[:12]}
+
+    def compact_summary_cards(self, convo_id: str, summaries: list[dict[str, Any]]) -> dict[str, Any]:
+        text = "\n\n".join(str(s.get("body") or "") for s in summaries)
+        prompt = (
+            "Roll these memory summaries into one macro summary. Preserve durable facts, decisions, "
+            "constraints, entities, and unresolved questions. Output markdown only.\n\n"
+            f"Conversation: {convo_id}\n{text[:12000]}"
+        )
+        try:
+            body = self.call_api(prompt)
+        except Exception as e:
+            logger.warning("[CompactWorker] compact_summary_cards failed: %s", e)
+            body = text[:4000]
+        return {"body": body.strip(), "topics": _extract_terms(body), "entities": _extract_terms(body)[:12]}
+
+
+def _fallback_summary(messages: list[dict[str, Any]]) -> str:
+    head = messages[0].get("content", "")[:500] if messages else ""
+    tail = messages[-1].get("content", "")[:1000] if messages else ""
+    return f"Conversation memory summary\n\nStart:\n{head}\n\nLatest:\n{tail}"
+
+
+def _extract_terms(text: str) -> list[str]:
+    import re
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for term in re.findall(r"\b[A-Za-zÀ-ỹ][\wÀ-ỹ-]{3,}\b", text or ""):
+        key = term.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(term)
+        if len(out) >= 20:
+            break
+    return out
 
 
 def build_state_summary_for_btw(snap: dict) -> str:

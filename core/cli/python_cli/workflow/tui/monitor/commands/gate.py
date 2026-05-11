@@ -1,9 +1,8 @@
 """Gate command handlers: /accept, /delete, post-delete flow."""
 from __future__ import annotations
 
-import threading
-
 from ..core._constants import _GATE_ACCEPTED, _GATE_DECLINED, _GATE_REGEN, _GATE_WAITING
+from .._task_pool import submit_monitor_task
 from core.cli.python_cli.i18n import t
 
 
@@ -27,7 +26,7 @@ def handle_accept(app, root: str, ws) -> None:
         except Exception:
             pass
 
-    threading.Thread(target=_accept_bg, daemon=True).start()
+    submit_monitor_task(_accept_bg)
 
 
 def handle_delete(app, root: str, ws) -> None:

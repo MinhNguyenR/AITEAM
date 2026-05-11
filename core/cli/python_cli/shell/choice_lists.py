@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from core.cli.python_cli.shell.command_registry import menu_commands
 

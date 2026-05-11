@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI Team Trace</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=3">
+</head>
+<body>
+  <div class="app">
+    <aside class="runs">
+      <div class="brand">
+        <div class="mark">AT</div>
+        <div>
+          <h1>trackaiteam</h1>
+          <p>Run History</p>
+        </div>
+      </div>
+      <div class="sidebar-actions">
+        <button id="newPipeline" class="primary">New Pipeline</button>
+        <button id="refresh" class="ghost">Refresh</button>
+      </div>
+      <select id="statusFilter" aria-label="Run status filter">
+        <option value="">All statuses</option>
+        <option value="running">Running</option>
+        <option value="done">Done</option>
+        <option value="error">Problems</option>
+      </select>
+      <div id="runList" class="run-list"></div>
+    </aside>
+
+    <main class="trace">
+      <header class="topbar">
+        <div>
+          <div id="runTitle" class="run-title">Live / all runs</div>
+          <div id="runMeta" class="run-meta">Waiting for trace events</div>
+        </div>
+        <div class="toolbar">
+          <input id="agent" placeholder="Agent">
+          <input id="kind" placeholder="Kind">
+          <label class="toggle"><input id="errors" type="checkbox"> Problems</label>
+          <button id="pause">Pause</button>
+        </div>
+      </header>
+
+      <section class="run-composer">
+        <div class="field pipeline-field">
+          <label>Pipeline</label>
+          <select id="pipelineSelect"></select>
+        </div>
+        <div class="field workspace-field">
+          <label>Workspace</label>
+          <div class="workspace-row">
+            <input id="workspaceInput" placeholder="Absolute workspace path">
+            <button id="chooseWorkspace" type="button">Choose Workspace</button>
+          </div>
+          <div id="workspaceHint" class="hint">Agents can only write inside this workspace.</div>
+        </div>
+        <div class="field task-field">
+          <label>Task</label>
+          <textarea id="taskInput" placeholder="Describe what this pipeline run should do"></textarea>
+        </div>
+        <button id="startRun" class="primary start-button">Start Run</button>
+      </section>
+
+      <section id="summary" class="summary"></section>
+      <section id="questionPanel" class="question-panel hidden">
+        <div>
+          <b id="questionText"></b>
+          <span id="questionReason"></span>
+        </div>
+        <input id="answerInput" placeholder="Answer Ambassador / Leader">
+        <button id="sendAnswer">Send Answer</button>
+      </section>
+
+      <section class="trace-grid">
+        <section class="span-panel">
+          <div class="section-title">
+            <span>Trace Timeline</span>
+            <span id="live" class="chip">live</span>
+          </div>
+          <div id="timeline" class="timeline"></div>
+        </section>
+
+        <aside class="inspector">
+          <div class="section-title">
+            <span>Inspector</span>
+            <span id="status" class="muted">disconnected</span>
+          </div>
+          <div id="detail" class="detail empty">Select an event.</div>
+        </aside>
+      </section>
+
+      <section class="tabs">
+        <div class="tab-head">
+          <button data-tab="model" class="active">Model</button>
+          <button data-tab="terminal">Terminal</button>
+          <button data-tab="files">Files & Locks</button>
+          <button data-tab="assignments">Assignments</button>
+          <button data-tab="agents">Agents</button>
+        </div>
+        <div id="model" class="tab-pane active"></div>
+        <div id="terminal" class="tab-pane"></div>
+        <div id="files" class="tab-pane"></div>
+        <div id="assignments" class="tab-pane"></div>
+        <div id="agents" class="tab-pane"></div>
+      </section>
+    </main>
+  </div>
+  <div id="workspaceModal" class="modal hidden">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <div>
+          <h2>Choose Workspace</h2>
+          <p id="fsCurrent">Loading...</p>
+        </div>
+        <button id="closeWorkspaceModal" type="button">Close</button>
+      </div>
+      <div id="fsRoots" class="fs-roots"></div>
+      <div class="fs-actions">
+        <button id="fsUp" type="button">Up</button>
+        <button id="useWorkspace" class="primary" type="button">Use This Folder</button>
+      </div>
+      <div id="fsEntries" class="fs-entries"></div>
+    </div>
+  </div>
+  <script src="/assets/app.js?v=3"></script>
+</body>
+</html>

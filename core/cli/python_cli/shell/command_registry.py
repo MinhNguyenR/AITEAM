@@ -19,7 +19,7 @@ MAIN_MENU_BY_NUMBER: dict[str, str] = {
     "7": "workflow",
 }
 
-MAIN_MENU_ALIASES: tuple[str, ...] = tuple(f"/{v}" for v in MAIN_MENU_BY_NUMBER.values()) + ("/exit", "/back", "/explain", "/explainer", "/restore")
+MAIN_MENU_ALIASES: tuple[str, ...] = tuple(f"/{v}" for v in MAIN_MENU_BY_NUMBER.values()) + ("/exit", "/back", "/restore")
 MAIN_MENU_VALID_CHOICES: tuple[str, ...] = (
     tuple(MAIN_MENU_BY_NUMBER.keys()) + MAIN_MENU_ALIASES
 )
@@ -27,7 +27,7 @@ MAIN_MENU_VALID_CHOICES: tuple[str, ...] = (
 MAIN_PROMPT_LABEL = "> "
 
 
-# start â†’ mode select
+# start -> mode select
 START_MODE_BY_NUMBER: dict[str, str] = {
     "1": "ask",
     "2": "agent",

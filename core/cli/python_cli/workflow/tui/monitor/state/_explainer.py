@@ -1,4 +1,4 @@
-"""Explainer state renderer -- using→thinking→writing (@codebase) or reading→thinking→writing (@file)."""
+"""Explainer state renderer -- using -> thinking -> writing (@codebase) or reading -> thinking -> writing (@file)."""
 from __future__ import annotations
 
 from core.cli.python_cli.i18n import t
@@ -34,7 +34,7 @@ def render_explainer_tree(sc: str, role: str, st: dict, elapsed: int = 0) -> str
     if is_done:
         for i, s in enumerate(order):
             connector = "+-" if i == len(order) - 1 else "+-"
-            parts.append(f"[dim]{connector}[/dim] {_label(s)} [green]✓[/green]")
+            parts.append(f"[dim]{connector}[/dim] {_label(s)} [green]OK[/green]")
         return "\n".join(parts)
 
     try:
@@ -43,7 +43,7 @@ def render_explainer_tree(sc: str, role: str, st: dict, elapsed: int = 0) -> str
         cur_idx = 0
 
     for s in order[:cur_idx]:
-        parts.append(f"[dim]+-[/dim] {_label(s)} [green]✓[/green]")
+        parts.append(f"[dim]+-[/dim] {_label(s)} [green]OK[/green]")
 
     spin = f" [bold blue]{sc}[/bold blue]"
     elapsed_str = f"  [dim]({elapsed}s)[/dim]" if elapsed else ""
@@ -66,10 +66,10 @@ def render_explainer_done(role: str, output_file: str = "") -> str:
     head = f"[bold green]*[/bold green] [bold]{role}[/bold]"
     if output_file:
         safe = output_file.replace("[", r"\[")
-        head += f"  [dim]→ {safe}[/dim]"
+        head += f"  [dim]-> {safe}[/dim]"
     branches = [
-        f"[dim]+-[/dim] {_label('using')} [green]✓[/green]",
-        f"[dim]+-[/dim] {_label('thinking')} [green]✓[/green]",
-        f"[dim]+-[/dim] {_label('writing')} [green]✓[/green]",
+        f"[dim]+-[/dim] {_label('using')} [green]OK[/green]",
+        f"[dim]+-[/dim] {_label('thinking')} [green]OK[/green]",
+        f"[dim]+-[/dim] {_label('writing')} [green]OK[/green]",
     ]
     return "\n".join([head, *branches])

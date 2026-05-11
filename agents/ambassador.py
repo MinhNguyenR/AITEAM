@@ -1,11 +1,10 @@
-﻿"""
+"""
 Ambassador Agent - Phase 0
 ==========================
 Input Parser & Task Router for Multi-Agent System v6.2
-Author: Nguyá»…n Äáº·ng TÆ°á»ng Minh
+Author: Nguyen Dang Tuong Minh
 Hardware Target: RTX 5080 (16GB VRAM)
 """
-
 
 import json
 import logging
@@ -22,8 +21,6 @@ from core.bootstrap import ensure_project_root
 ensure_project_root()
 
 
-
-
 from core.config import config
 from core.domain.routing_map import selected_leader_for_tier
 from core.domain.prompts import AMBASSADOR_SYSTEM_PROMPT
@@ -32,9 +29,6 @@ from agents.base_agent import BaseAgent
 from core.domain.delta_brief import DeltaBrief
 from utils.input_validator import validate_user_prompt
 from utils.json_utils import parse_json_resilient, strip_markdown_fences
-
-
-
 
 
 from .support._ambassador_classify import (
@@ -48,7 +42,7 @@ from .support._ambassador_classify import (
 
 class Ambassador(BaseAgent):
     """
-    Phase 0 Agent: Parses user input â†’ classifies tier â†’ routes to appropriate agent.
+    Phase 0 Agent: Parses user input -> classifies tier -> routes to appropriate agent.
 
 
     Inherits from BaseAgent with:
@@ -58,24 +52,21 @@ class Ambassador(BaseAgent):
     - Session logging
     """
 
-
     def __init__(self, budget_limit_usd: Optional[float] = None):
         """Initialize Ambassador with its own registry model (gpt-5.4-nano)."""
         cfg = config.get_worker("AMBASSADOR")
         super().__init__(
             agent_name="Ambassador",
-            model_name=cfg["model"],        # openai/gpt-5.4-nano â€” NOT tier model
+            model_name=cfg["model"],  # openai/gpt-5.4-nano - NOT tier model
             system_prompt=AMBASSADOR_SYSTEM_PROMPT,
-            max_tokens=cfg["max_tokens"],   # 300
-            temperature=cfg["temperature"], # 0.1
+            max_tokens=cfg["max_tokens"],  # 300
+            temperature=cfg["temperature"],  # 0.1
             budget_limit_usd=budget_limit_usd,
             registry_role_key="AMBASSADOR",
         )
         self.last_usage_event: Dict[str, Any] = {}
 
-
     # ----- lightweight helpers -----
-
 
     _extract_vram = staticmethod(_extract_vram_impl)
     _detect_language = staticmethod(_detect_language_impl)
@@ -94,7 +85,10 @@ class Ambassador(BaseAgent):
             temperature=0.1,
             max_tokens=300,
             response_format={"type": "json_object"},
-            extra_headers={"X-OpenRouter-Cache": "true", "X-OpenRouter-Cache-TTL": "300"},
+            extra_headers={
+                "X-OpenRouter-Cache": "true",
+                "X-OpenRouter-Cache-TTL": "300",
+            },
         )
         usage = getattr(resp, "usage", None)
         p_tok = int(getattr(usage, "prompt_tokens", 0) or 0)
@@ -112,9 +106,14 @@ class Ambassador(BaseAgent):
             self.last_usage_event = evt
             try:
                 from utils.logger import workflow_event as _wfe
-                _wfe("ambassador", "usage",
-                     f"model={self.model_name} prompt_tokens={p_tok} completion_tokens={c_tok}")
+
+                _wfe(
+                    "ambassador",
+                    "usage",
+                    f"model={self.model_name} prompt_tokens={p_tok} completion_tokens={c_tok}",
+                )
                 from core.runtime import session as _ws
+
                 _ws.set_stream_prompt_tokens(p_tok)
                 _ws.set_stream_completion_tokens(c_tok)
             except Exception:
@@ -124,10 +123,8 @@ class Ambassador(BaseAgent):
             raise ValueError("API returned empty content")
         return parse_json_resilient(strip_markdown_fences(content.strip()))
 
-
     _apply_tier_upgrade_rules = staticmethod(_apply_tier_upgrade_rules_impl)
     _is_restore_request = staticmethod(_is_restore_request_impl)
-
 
     def _build_delta_brief(
         self,
@@ -160,15 +157,18 @@ class Ambassador(BaseAgent):
             complexity_score=complexity,
         )
 
-
-    def _build_fallback_delta_brief(self, user_input: str, vram: Optional[float], lang: str) -> DeltaBrief:
+    def _build_fallback_delta_brief(
+        self, user_input: str, vram: Optional[float], lang: str
+    ) -> DeltaBrief:
         """Build a DeltaBrief using rule-based fallback (no API)."""
         tier = self._classify_tier_fallback(user_input)
         is_cuda = bool(re.search(r"cuda|gpu|kernel", user_input, re.IGNORECASE))
         is_hw = bool(re.search(r"vram|memory|rtx|hardware", user_input, re.IGNORECASE))
         complexity = {"LOW": 0.3, "MEDIUM": 0.6, "HARD": 0.9}.get(tier, 0.5)
         tier = self._apply_tier_upgrade_rules(tier, is_cuda, complexity, is_hw)
-        params = {"fast_path": "restore"} if self._is_restore_request(user_input) else {}
+        params = (
+            {"fast_path": "restore"} if self._is_restore_request(user_input) else {}
+        )
         return DeltaBrief(
             original_prompt=user_input,
             summary=user_input[:100],
@@ -183,46 +183,49 @@ class Ambassador(BaseAgent):
             complexity_score=complexity,
         )
 
-
     # ----- core -----
 
-
     def parse(self, user_input: str) -> DeltaBrief:
-        """Parse user input â†’ DeltaBrief with tier + model from config."""
+        """Parse user input -> DeltaBrief with tier + model from config."""
         user_input = validate_user_prompt(user_input)
         vram = self._extract_vram(user_input)
         lang = self._detect_language(user_input)
 
-
         # Phase 1: Reading user input
         try:
             from core.runtime import session as _ws
+
             _ws.set_ambassador_substate("reading", "User input")
             _ws.clear_leader_stream_buffer()
         except Exception:
             pass
 
-
         # Phase 2: Thinking (LLM call)
         try:
             from core.runtime import session as _ws
+
             _ws.set_ambassador_substate("thinking")
-            _ws.append_leader_stream_chunk(f"Analyzing: {user_input[:120]}â€¦")
+            _ws.append_leader_stream_chunk(f"Analyzing: {user_input[:120]}...")
         except Exception:
             pass
-
 
         try:
             llm = self._call_parse_api(user_input)
             brief = self._build_delta_brief(user_input, llm, vram, lang)
-        except (OSError, RuntimeError, ValueError, TypeError, json.JSONDecodeError) as e:
-            logger.warning("[Ambassador] API error: %s â€” using fallback", e)
+        except (
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            json.JSONDecodeError,
+        ) as e:
+            logger.warning("[Ambassador] API error: %s - using fallback", e)
             brief = self._build_fallback_delta_brief(user_input, vram, lang)
-
 
         # Phase 3: Writing routing decision
         try:
             from core.runtime import session as _ws
+
             _ws.set_ambassador_substate("writing", "state.json")
             _ws.clear_leader_stream_buffer()
             _lines = [
@@ -236,24 +239,35 @@ class Ambassador(BaseAgent):
         except Exception:
             pass
 
-
         try:
             from utils.graphrag_utils import try_ingest_prompt_doc
+
             try_ingest_prompt_doc(
                 str(brief.task_uuid),
                 "Ambassador",
                 "parse",
                 user_input[:2000],
-                json.dumps({"tier": brief.tier, "summary": brief.summary, "model": brief.target_model}, ensure_ascii=False),
+                json.dumps(
+                    {
+                        "tier": brief.tier,
+                        "summary": brief.summary,
+                        "model": brief.target_model,
+                    },
+                    ensure_ascii=False,
+                ),
             )
-        except (OSError, json.JSONDecodeError, ValueError, TypeError, RuntimeError) as e:
+        except (
+            OSError,
+            json.JSONDecodeError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+        ) as e:
             logger.debug("[Ambassador] GraphRAG ingest skipped: %s", type(e).__name__)
         return brief
 
-
     def parse_to_dict(self, user_input: str) -> Dict[str, Any]:
         return self.parse(user_input).model_dump()
-
 
     @staticmethod
     def get_tier_info(tier: str) -> Dict[str, str]:
@@ -269,27 +283,21 @@ class Ambassador(BaseAgent):
             }.get(tier, ""),
         }
 
-
-
-
     def execute(self, task: str, **kwargs) -> str:
         """
         Main execution logic for Ambassador:
-        1. Parse user input â†’ DeltaBrief (with 3-tier classification)
-        2. Apply auto-upgrade rules (CUDA or high complexity â†’ HARD)
+        1. Parse user input -> DeltaBrief (with 3-tier classification)
+        2. Apply auto-upgrade rules (CUDA or high complexity -> HARD)
         3. Return JSON routing decision for orchestrator
         """
         # Parse input using existing parse() method
         brief = self.parse(task)
 
-
         # Get selected_leader from DeltaBrief (already computed in parse)
         selected_route = brief.selected_leader
 
-
         # Determine escalation (only for HARD tier)
-        is_escalated = (brief.tier == "HARD")
-
+        is_escalated = brief.tier == "HARD"
 
         # Build scope (file patterns from language detection)
         scope = []
@@ -304,7 +312,6 @@ class Ambassador(BaseAgent):
             ext = ext_map.get(brief.language_detected, f".{brief.language_detected}")
             scope = [f"*{ext}"]
 
-
         # Build constraints from brief
         constraints = []
         if brief.is_cuda_required:
@@ -313,7 +320,6 @@ class Ambassador(BaseAgent):
             constraints.append(f"VRAM: {brief.estimated_vram_usage}")
         if brief.is_hardware_bound:
             constraints.append("Hardware-bound optimization")
-
 
         # Construct output JSON
         output = {
@@ -329,7 +335,6 @@ class Ambassador(BaseAgent):
             "next_step": "CREATE_CONTEXT_MD",
         }
 
-
         # Log action
         self.log_action(
             decision=f"Routed task to {selected_route} (tier: {brief.tier})",
@@ -337,10 +342,8 @@ class Ambassador(BaseAgent):
             cost=self.session_cost,
         )
 
-
         # Return JSON string
         return json.dumps(output, indent=2)
-
 
     def format_output(self, response: str) -> str:
         """
@@ -360,18 +363,14 @@ class Ambassador(BaseAgent):
             return cleaned
 
 
-
-
 # Quick test
 if __name__ == "__main__":
     from rich.console import Console
     from rich.panel import Panel
 
-
     console = Console()
     ambassador = Ambassador(budget_limit_usd=1.0)  # Test with $1 budget
-    console.print("[bold green]âœ“ Ambassador initialized[/bold green]")
-
+    console.print("[bold green]OK Ambassador initialized[/bold green]")
 
     for test in [
         "Explain Python decorators",
@@ -380,8 +379,10 @@ if __name__ == "__main__":
     ]:
         console.print(f"\n[bold cyan]Input:[/bold cyan] {test}")
         result = ambassador.execute(test)
-        console.print(Panel(
-            result,
-            title="[bold]Routing Output[/bold]",
-            border_style="green",
-        ))
+        console.print(
+            Panel(
+                result,
+                title="[bold]Routing Output[/bold]",
+                border_style="green",
+            )
+        )

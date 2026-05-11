@@ -19,7 +19,7 @@ _GLOBAL_SLASH = frozenset({"/back", "/exit"})
 _SHUTDOWN = "/shutdown"
 
 # Commands that go in the "Tasks" group for the main menu
-_MAIN_TASKS = frozenset({"/chat", "/workflow", "/explainer @codebase", "/explainer @file"})
+_MAIN_TASKS = frozenset({"/chat", "/workflow"})
 # Commands that go in the "Info & utilities" group for the main menu
 _MAIN_INFO = frozenset({"/status", "/info", "/dashboard", "/settings", "/help"})
 
@@ -140,21 +140,34 @@ def render_popup_text(
         if cmd == "__sep__":
             if not first:
                 result.append(("", "\n"))
-            if not first_section:
-                result.append(("", "\n"))
             first_section = False
             result.append((f"fg:{PALETTE_DESC} underline", f" {desc}"))
         else:
             if not first:
                 result.append(("", "\n"))
             padded = cmd.ljust(pad)
-            if cmd.startswith("@") and "/" in cmd:
-                path = cmd[1:]
-                slash = path.rfind("/")
-                head_len = slash + 2 if slash >= 0 else 1
-                result.append((PALETTE_CMD_TAIL, padded[:head_len]))
-                result.append((PALETTE_CMD_BOLD, padded[head_len:len(cmd)]))
-                result.append((PALETTE_CMD_TAIL, padded[len(cmd):]))
+            if cmd.startswith("@"):
+                q_body = query[1:].lower() if query.startswith("@") else query.lower()
+                match_start = -1
+                match_len = 0
+                if q_body:
+                    body_pos = cmd[1:].lower().find(q_body)
+                    if body_pos >= 0:
+                        match_start = body_pos + 1
+                        match_len = len(q_body)
+                if match_start < 0 and "/" in cmd:
+                    path = cmd[1:]
+                    slash = path.rfind("/")
+                    match_start = slash + 2 if slash >= 0 else 1
+                    match_len = len(cmd) - match_start
+                if match_start >= 0 and match_len > 0:
+                    match_end = min(len(cmd), match_start + match_len)
+                    result.append((PALETTE_CMD_TAIL, padded[:match_start]))
+                    result.append((PALETTE_CMD_BOLD, padded[match_start:match_end]))
+                    result.append((PALETTE_CMD_TAIL, padded[match_end:]))
+                else:
+                    result.append((PALETTE_CMD_BOLD, cmd))
+                    result.append((PALETTE_CMD_TAIL, " " * (pad - len(cmd))))
             elif q_len <= len(cmd):
                 result.append((PALETTE_CMD_BOLD, padded[:q_len]))
                 result.append((PALETTE_CMD_TAIL, padded[q_len:]))

@@ -32,13 +32,13 @@ def render_editing(sc: str) -> str:
 def render_accepted() -> str:
     return (
         f"[bold green]*[/bold green] [bold]Human Gate[/bold]\n"
-        f"[dim]+-[/dim] [green]✓ {t('context.accepted_msg')}[/green]"
+        f"[dim]+-[/dim] [green]OK {t('context.accepted_msg')}[/green]"
     )
 
 
 def render_declined(sc: str) -> str:
     return (
         f"[bold red]*[/bold red] [bold]Human Gate[/bold]\n"
-        f"[dim]+-[/dim] [red]✗ {t('gate.declined')}[/red]\n"
+        f"[dim]+-[/dim] [red]X {t('gate.declined')}[/red]\n"
         f"[dim]+-[/dim] [#888888]{sc}[/#888888] {t('gate.regen_prompt')}"
     )

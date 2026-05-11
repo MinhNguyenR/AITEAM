@@ -22,7 +22,7 @@ from .session_notification import (
     dismiss_pipeline_notification, prune_stale_pipeline_notifications,
 )
 from .session_pipeline_state import (
-    request_pipeline_stop, clear_pipeline_stop, is_pipeline_stop_requested,
+    request_pipeline_stop, request_pipeline_abort, clear_pipeline_stop, is_pipeline_stop_requested,
     # TUI stream history persistence
     append_stream_line, get_stream_history, clear_stream_history,
     # Clarification mechanism
@@ -46,7 +46,7 @@ from .session_pipeline_state import (
     set_pipeline_paused_at_gate, set_pipeline_graph_failed,
     set_pipeline_run_finished, get_pipeline_stop_phase,
     set_pipeline_stop_phase, set_phase_running, set_phase_paused_gate,
-    transition_pipeline_begin_run, transition_pipeline_active,
+    transition_pipeline_begin_run, set_pipeline_run_id, transition_pipeline_active,
     transition_pipeline_finish, transition_pipeline_pause_at_gate,
     enqueue_monitor_command, drain_monitor_command_queue,
     get_pipeline_snapshot,
@@ -87,7 +87,7 @@ __all__ = [
     "set_pipeline_toast", "get_pipeline_toast_text",
     "push_pipeline_notification", "list_active_notifications",
     "dismiss_pipeline_notification", "prune_stale_pipeline_notifications",
-    "request_pipeline_stop", "clear_pipeline_stop", "is_pipeline_stop_requested",
+    "request_pipeline_stop", "request_pipeline_abort", "clear_pipeline_stop", "is_pipeline_stop_requested",
     # TUI stream history
     "append_stream_line", "get_stream_history", "clear_stream_history",
     # Clarification
@@ -111,7 +111,7 @@ __all__ = [
     "set_pipeline_graph_failed", "set_pipeline_run_finished",
     "get_pipeline_stop_phase", "set_pipeline_stop_phase",
     "set_phase_running", "set_phase_paused_gate",
-    "transition_pipeline_begin_run", "transition_pipeline_active",
+    "transition_pipeline_begin_run", "set_pipeline_run_id", "transition_pipeline_active",
     "transition_pipeline_finish", "transition_pipeline_pause_at_gate",
     "enqueue_monitor_command", "drain_monitor_command_queue",
     "get_pipeline_snapshot",

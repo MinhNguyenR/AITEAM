@@ -46,7 +46,7 @@ def _classify_tier_fallback(text: str) -> str:
 
     # HARD: system architecture, complex multi-file design, or hardware-bound work
     hard_design_kw = (
-        "architect", "kiáº¿n trÃºc sÆ°", "system architect", "design the system",
+        "architect", "kiến trúc sư", "system architect", "design the system",
         "design system", "design architecture", "technical lead",
         "tech lead", "platform design", "infrastructure design",
         "scalability design", "high-level design", "hld",
@@ -54,8 +54,8 @@ def _classify_tier_fallback(text: str) -> str:
         "system design", "architecture", "distributed", "microservice",
         "theorem", "proof", "numerical", "statistical",
         "backpropagation", "loss function", "convergence",
-        "derive", "prove", "thiáº¿t káº¿ há»‡ thá»‘ng", "kiáº¿n trÃºc",
-        "multi-agent", "orchestrat", "pipeline phá»©c",
+        "derive", "prove", "thiết kế hệ thống", "kiến trúc",
+        "multi-agent", "orchestrat", "pipeline phức",
     )
     if any(kw in t for kw in hard_design_kw):
         return "HARD"
@@ -73,9 +73,9 @@ def _classify_tier_fallback(text: str) -> str:
         "machine learning", "deep learning", "neural", "transformer",
         "attention", "gradient", "matrix", "tensor", "model",
         # Vietnamese
-        "táº¡o", "viáº¿t", "xÃ¢y dá»±ng", "láº­p trÃ¬nh", "thiáº¿t káº¿",
-        "huáº¥n luyá»‡n", "nhÃºng", "truy xuáº¥t", "mÃ´ hÃ¬nh",
-        "há»c mÃ¡y", "máº¡ng nÆ¡-ron", "phÃ¢n loáº¡i", "dá»± Ä‘oÃ¡n",
+        "tạo", "viết", "xây dựng", "lập trình", "thiết kế",
+        "huấn luyện", "nhúng", "truy xuất", "mô hình",
+        "học máy", "mạng nơ-ron", "phân loại", "dự đoán",
     )
     if any(kw in t for kw in medium_kw):
         return "MEDIUM"
@@ -85,8 +85,8 @@ def _classify_tier_fallback(text: str) -> str:
     qa_kw = (
         "what", "why", "how", "explain", "define", "meaning", "purpose",
         "what is", "what are", "?",
-        "vÃ¬ sao", "lÃ  gÃ¬", "nhÆ° tháº¿ nÃ o", "táº¡i sao", "giáº£i thÃ­ch",
-        "khÃ¡i niá»‡m", "Ä‘á»‹nh nghÄ©a",
+        "vì sao", "là gì", "như thế nào", "tại sao", "giải thích",
+        "khái niệm", "định nghĩa",
     )
     if any(kw in t for kw in qa_kw):
         return "LOW"
@@ -106,4 +106,4 @@ def _apply_tier_upgrade_rules(tier: str, is_cuda: bool, complexity: float, is_ha
 
 
 def _is_restore_request(text: str) -> bool:
-    return bool(re.search(r"\b(restore|revert|undo|rollback)\b|khÃ´i\s*phá»¥c|hoÃ n\s*tÃ¡c", text, re.IGNORECASE))
+    return bool(re.search(r"\b(restore|revert|undo|rollback)\b|khôi\s*phục|hoàn\s*tác", text, re.IGNORECASE))

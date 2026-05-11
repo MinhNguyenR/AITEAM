@@ -106,7 +106,7 @@ def _pipeline_info_lines(tier: str | None, steps: list[str]) -> list[str]:
         else:
             lines.append(f"  [bold]{role:<14}[/bold]  [dim](no model)[/dim]")
         if reason:
-            lines.append(f"  [dim]  └- {reason}[/dim]")
+            lines.append(f"  [dim]  +- {reason}[/dim]")
     return lines
 
 
@@ -140,38 +140,38 @@ def _node_status_icon(
 
     if node == "ambassador":
         if amb == "running": return f"[#888888]{sc}[/#888888]"
-        if amb == "done":    return "[bold green]✔[/bold green]"
-        if amb == "error":   return "[bold red]✘[/bold red]"
+        if amb == "done":    return "[bold green]OK[/bold green]"
+        if amb == "error":   return "[bold red]X[/bold red]"
         if completed_nodes and "ambassador" in completed_nodes:
-            return "[bold green]✔[/bold green]"
+            return "[bold green]OK[/bold green]"
         return "[dim]○[/dim]"
 
     tier = snap.get("brief_tier")
     if amb != "done" or not tier:
         if completed_nodes and node in completed_nodes:
-            return "[bold green]✔[/bold green]"
+            return "[bold green]OK[/bold green]"
         return "[dim]○[/dim]"
 
     if node == active:
-        if failed: return "[bold red]✘[/bold red]"
+        if failed: return "[bold red]X[/bold red]"
         return f"[#888888]{sc}[/#888888]"
     if node == "human_context_gate" and paused:
         return f"[#888888]{sc}[/#888888]"
     if node in _NODE_ORDER and active in _NODE_ORDER:
         ni, ai = _NODE_ORDER.index(node), _NODE_ORDER.index(active)
         if ni < ai:
-            return "[bold green]✔[/bold green]"
+            return "[bold green]OK[/bold green]"
         if ni == ai and finished:
-            return "[bold green]✔[/bold green]"
+            return "[bold green]OK[/bold green]"
     if finished and not failed:
-        return "[bold green]✔[/bold green]"
+        return "[bold green]OK[/bold green]"
     if completed_nodes and node in completed_nodes:
-        return "[bold green]✔[/bold green]"
+        return "[bold green]OK[/bold green]"
     for ns in (snap.get("workflow_list_nodes_state") or []):
         if isinstance(ns, dict) and str(ns.get("node")) == node:
             st = str(ns.get("status") or "")
-            if st == "done":   return "[bold green]✔[/bold green]"
-            if st in ("error", "failed"): return "[bold red]✘[/bold red]"
+            if st == "done":   return "[bold green]OK[/bold green]"
+            if st in ("error", "failed"): return "[bold red]X[/bold red]"
             break
     return "[dim]○[/dim]"
 

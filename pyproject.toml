@@ -25,6 +25,7 @@ dependencies = [
     "fpdf2>=2.7.0",
     "fonttools>=4.60.2",
     "pillow>=12.2.0",
+    "tiktoken>=0.8.0",
 ]
 
 [project.optional-dependencies]
@@ -39,11 +40,17 @@ dev = [
 
 [project.scripts]
 aiteam = "core.frontends.cli.app:main_loop"
+aiteamruntime = "aiteamruntime.web.cli:main"
+trackaiteam = "aiteamruntime.web.cli:main"
+aitest = "aiteamruntime.demo_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["core*", "agents*", "utils*"]
+include = ["aiteamruntime*", "core*", "agents*", "utils*"]
 exclude = ["tests*", "build*", "dist*", "*.egg-info*"]
+
+[tool.setuptools.package-data]
+"aiteamruntime.web" = ["assets/*.html", "assets/*.css", "assets/*.js"]
 
 [tool.ruff.lint]
 ignore = ["E402"]

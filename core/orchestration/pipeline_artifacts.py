@@ -1,4 +1,4 @@
-﻿"""Pure orchestration services for workflow artifacts."""
+"""Pure orchestration services for workflow artifacts."""
 
 from __future__ import annotations
 

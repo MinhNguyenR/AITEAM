@@ -1,4 +1,4 @@
-﻿"""OpenRouter API client wrapper â€” retry, budget guard, stream aggregation."""
+"""OpenRouter API client wrapper - retry, budget guard, stream aggregation."""
 from __future__ import annotations
 
 import logging
@@ -58,7 +58,20 @@ class APIClient:
     ) -> List[Dict[str, str]]:
         target_system = system_prompt or default_system
         messages: List[Dict[str, str]] = [{"role": "system", "content": target_system}]
-        messages.extend(self.history[-10:])
+        try:
+            from core.storage._token_window import build_token_aware_window, estimate_tokens, memory_budget_tokens
+
+            messages.extend(
+                build_token_aware_window(
+                    self.history,
+                    [],
+                    budget=memory_budget_tokens(),
+                    system_prompt_tokens=estimate_tokens(target_system, model=self.model_name),
+                    model=self.model_name,
+                )
+            )
+        except Exception:
+            messages.extend(self.history[-10:])
         messages.append({"role": "user", "content": user_prompt})
         return messages
 
@@ -79,7 +92,7 @@ class APIClient:
         if finish_reason == "length":
             prompt_tok = getattr(usage, "prompt_tokens", "?")
             logger.warning(
-                "[%s] finish_reason=length â€” output truncated (attempt %d/%d). prompt_tokens=%s, max_tokens=%d.",
+                "[%s] finish_reason=length - output truncated (attempt %d/%d). prompt_tokens=%s, max_tokens=%d.",
                 self.agent_name, attempt + 1, _MAX_RETRIES, prompt_tok, target_tokens,
             )
             if attempt == _MAX_RETRIES - 1:
@@ -180,7 +193,7 @@ class APIClient:
         default_system: str,
     ) -> str:
         if self._budget.is_paused:
-            logger.warning("[%s] Agent is PAUSED â€” skipping API call", self.agent_name)
+            logger.warning("[%s] Agent is PAUSED - skipping API call", self.agent_name)
             return "[PAUSED] Agent budget exceeded."
         try:
             ensure_dashboard_budget_available()
@@ -193,6 +206,12 @@ class APIClient:
         last_error: Optional[Exception] = None
         for attempt in range(_MAX_RETRIES):
             try:
+                from core.runtime import session as _ws_mod
+                if _ws_mod.is_pipeline_stop_requested():
+                    return "[STOPPED]"
+            except Exception:
+                pass
+            try:
                 resp = chat_completions_create(
                     self.client,
                     model=model,
@@ -204,6 +223,12 @@ class APIClient:
                 content = self._handle_response_content(resp, attempt, max_tokens)
                 if content is None:
                     last_error = ValueError(f"retry needed (attempt {attempt + 1})")
+                    try:
+                        from core.runtime import session as _ws_mod
+                        if _ws_mod.is_pipeline_stop_requested():
+                            return "[STOPPED]"
+                    except Exception:
+                        pass
                     time.sleep(_BASE_BACKOFF * (2 ** attempt))
                     continue
 
@@ -235,7 +260,7 @@ class APIClient:
                     continue
                 if "429" in error_str or "rate limit" in error_str:
                     wait = _BASE_BACKOFF * (2 ** attempt)
-                    logger.warning("[%s] Rate limited â€” retry %d/%d in %.1fs", self.agent_name, attempt + 1, _MAX_RETRIES, wait)
+                    logger.warning("[%s] Rate limited - retry %d/%d in %.1fs", self.agent_name, attempt + 1, _MAX_RETRIES, wait)
                     time.sleep(wait)
                     continue
                 _net_kw = (
@@ -251,7 +276,7 @@ class APIClient:
                     pass
                 if _is_net:
                     wait = min(_BASE_BACKOFF * (2 ** attempt), 30.0)
-                    logger.warning("[%s] Network error â€” retry %d/%d in %.1fs: %s", self.agent_name, attempt + 1, _MAX_RETRIES, wait, type(e).__name__)
+                    logger.warning("[%s] Network error - retry %d/%d in %.1fs: %s", self.agent_name, attempt + 1, _MAX_RETRIES, wait, type(e).__name__)
                     time.sleep(wait)
                     continue
                 status = getattr(e, "status_code", getattr(e, "code", None))
@@ -276,7 +301,7 @@ class APIClient:
         default_system: str,
     ) -> str:
         if self._budget.is_paused:
-            logger.warning("[%s] Agent is PAUSED â€” skipping API call", self.agent_name)
+            logger.warning("[%s] Agent is PAUSED - skipping API call", self.agent_name)
             return "[PAUSED] Agent budget exceeded."
         try:
             ensure_dashboard_budget_available()
@@ -315,6 +340,12 @@ class APIClient:
         attempt = 0
         while attempt < _MAX_RETRIES:
             try:
+                from core.runtime import session as _ws_mod
+                if _ws_mod.is_pipeline_stop_requested():
+                    return "[STOPPED]"
+            except Exception:
+                pass
+            try:
                 stream = chat_completions_create_stream(
                     self.client,
                     model=model,
@@ -339,7 +370,7 @@ class APIClient:
                         messages.append({"role": "user", "content": f"User clarification: {_clarif}\n\nNow generate the full context.md."})
                     else:
                         messages.append({"role": "user", "content": "Clarification skipped. Proceed with best assumptions and generate the full context.md now."})
-                    logger.info("[%s] clarification answered (%s) â€” re-calling for context.md", self.agent_name, _clarif[:40] if _clarif else "skip")
+                    logger.info("[%s] clarification answered (%s) - re-calling for context.md", self.agent_name, _clarif[:40] if _clarif else "skip")
                     # Reset stream buffer so TUI shows fresh content for the re-call
                     try:
                         from core.runtime import session as _ws_mod
@@ -351,6 +382,12 @@ class APIClient:
 
                 if not content:
                     last_error = ValueError("stream returned empty content")
+                    try:
+                        from core.runtime import session as _ws_mod
+                        if _ws_mod.is_pipeline_stop_requested():
+                            return "[STOPPED]"
+                    except Exception:
+                        pass
                     time.sleep(2 ** attempt)
                     attempt += 1
                     continue
@@ -372,11 +409,11 @@ class APIClient:
                 err = str(e).lower()
                 if "429" in err or "rate limit" in err:
                     wait = _BASE_BACKOFF * (2 ** attempt)
-                    logger.warning("[%s] stream rate limit â€” wait %.1fs", self.agent_name, wait)
+                    logger.warning("[%s] stream rate limit - wait %.1fs", self.agent_name, wait)
                     time.sleep(wait)
                     attempt += 1
                     continue
-                # Transient network/protocol errors â€” retry indefinitely with backoff
+                # Transient network/protocol errors - retry indefinitely with backoff
                 _network_kw = (
                     "remote protocol", "incomplete", "reset by peer",
                     "connection reset", "broken pipe", "connection aborted",
@@ -395,12 +432,12 @@ class APIClient:
                 if _is_network:
                     # Capped backoff: max 30s between retries
                     wait = min(_BASE_BACKOFF * (2 ** attempt), 30.0)
-                    logger.warning("[%s] network error (attempt %d) â€” retry in %.1fs: %s",
+                    logger.warning("[%s] network error (attempt %d) - retry in %.1fs: %s",
                                    self.agent_name, attempt + 1, wait, type(e).__name__)
                     time.sleep(wait)
                     attempt += 1
                     continue
-                logger.error("[%s] stream API error: %s â€” %s", self.agent_name, type(e).__name__, e)
+                logger.error("[%s] stream API error: %s - %s", self.agent_name, type(e).__name__, e)
                 raise
         if last_error:
             raise last_error

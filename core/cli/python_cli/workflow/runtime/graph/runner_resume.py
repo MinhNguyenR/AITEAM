@@ -1,4 +1,4 @@
-﻿"""Resume workflow after a human gate pause."""
+"""Resume workflow after a human gate pause."""
 
 from __future__ import annotations
 
@@ -22,6 +22,14 @@ def resume_workflow() -> bool:
     graph = get_graph(get_checkpointer(), interrupt_before=())
     config = {"configurable": {"thread_id": tid}}
     try:
+        try:
+            from core.storage.conversation_archive import fast_load
+            from core.storage.memory_coordinator import MemoryCoordinator
+
+            fast_load(tid)
+            MemoryCoordinator().on_workflow_step(tid, {"node": "resume", "thread_id": tid})
+        except Exception:
+            logger.debug("memory resume fast-load skipped", exc_info=True)
         while True:
             graph.invoke(None, config)
             snap = graph.get_state(config)

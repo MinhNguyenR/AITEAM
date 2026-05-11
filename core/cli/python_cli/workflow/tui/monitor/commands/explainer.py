@@ -1,7 +1,7 @@
 """Explainer inline command handler."""
 from __future__ import annotations
 
-import threading
+from .._task_pool import submit_monitor_task
 
 
 def handle_explainer_inline(app, payload: str, root: str) -> None:
@@ -45,4 +45,4 @@ def handle_explainer_inline(app, payload: str, root: str) -> None:
         except Exception as exc:
             app._safe_ui(lambda: app._write(f"[red]Explainer error: {exc}[/red]"))
 
-    threading.Thread(target=_run, daemon=True).start()
+    submit_monitor_task(_run)

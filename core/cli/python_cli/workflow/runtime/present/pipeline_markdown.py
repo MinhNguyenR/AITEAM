@@ -17,7 +17,7 @@ def _glyph(visual: str, spin_char: str, spin_pulse: bool) -> str:
     if visual == "done":
         return "[bold green]*[/bold green]"
     if visual == "error":
-        return "[red]✗[/red]"
+        return "[red]X[/red]"
     # pending -- static gray dot
     return "[grey46]o[/grey46]"
 
@@ -47,7 +47,7 @@ def _build_row(
     line1 = sep.join(col_top)
 
     if not is_last_row:
-        line1 += "  [white]↓[/white]"
+        line1 += "  [white]v[/white]"
 
     line2 = sep.join(col_bottom)
     return line1, line2

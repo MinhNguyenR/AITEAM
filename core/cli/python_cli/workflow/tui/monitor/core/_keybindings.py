@@ -52,7 +52,7 @@ def build_keybindings(app, *, _in_check: Condition) -> KeyBindings:
             from ....runtime import session as ws
             _snap_ct = ws.get_pipeline_snapshot()
             if str(_snap_ct.get("active_step") or "idle") not in ("idle", "end_failed", ""):
-                app._write(f"[dim]✘ {t('cmd.clear_running')}[/dim]")
+                app._write(f"[dim]X {t('cmd.clear_running')}[/dim]")
                 buf.set_document(_Document(''), bypass_readonly=True)
                 event.app.invalidate()
                 return
@@ -80,7 +80,7 @@ def build_keybindings(app, *, _in_check: Condition) -> KeyBindings:
                     return
             pos = _find_cut_pos(prefix, word, occurrence)
             if pos is None:
-                app._write(_r2a(f"[yellow]✘ {t('ui.not_found_in_input').format(word=_esc(word))}[/yellow]"))
+                app._write(_r2a(f"[yellow]X {t('ui.not_found_in_input').format(word=_esc(word))}[/yellow]"))
                 event.app.invalidate()
                 return
             new_text = prefix[:pos]

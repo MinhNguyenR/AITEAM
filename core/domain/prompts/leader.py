@@ -1,4 +1,4 @@
-﻿_PROJECT_MODE_NOTE = """\
+_PROJECT_MODE_NOTE = """\
 If this is a NEW PROJECT: propose the full directory layout.
 If continuing an existing project: skip the full tree; list only files that change.\
 """
@@ -42,6 +42,8 @@ Rules:
 - No implementation bodies; stubs/signatures/pseudocode only.
 - Do not output implementation code, complete code bodies, or sample code blocks.
 - Do not output terminal setup commands; Tool Curator decides setup and Secretary executes terminal commands.
+- If the task is a new project or needs framework scaffolding, explicitly state the intended stack and project root so Tool Curator can prepare Secretary-only setup commands before workers start.
+- Worker tasks must not assume scaffolding files exist until Secretary setup is complete.
 - Use precise paths and symbols; avoid vague wording.
 - Assign each atomic task to the best-suited worker by name.
 - Secretary owns all terminal commands; workers write files only and may suggest commands, but do not execute them.

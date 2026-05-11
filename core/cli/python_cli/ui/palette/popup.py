@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Callable, List, Tuple
 
@@ -14,7 +14,6 @@ from .items import (
     ptk_popup_window_style,
     render_popup_text,
 )
-
 
 
 def make_command_palette_body(

@@ -7,6 +7,7 @@ that import from here continue to work unchanged.
 """
 from __future__ import annotations
 
+from pathlib import Path
 import threading
 import time
 import uuid
@@ -66,6 +67,92 @@ from .session_pause_manager import is_paused_for_review, set_paused_for_review
 
 def request_pipeline_stop() -> None:
     _PIPELINE_STOP_EVENT.set()
+
+
+def _delete_current_run_artifacts(run_id: str | None = None) -> list[str]:
+    deleted: list[str] = []
+    candidates: set[Path] = set()
+    s = load_session()
+    for key in ("context_path", "state_json_path", "tools_path"):
+        raw = s.get(key)
+        if raw:
+            path = Path(str(raw))
+            if path.name in {"context.md", "state.json", "tools.md"}:
+                candidates.add(path)
+                candidates.add(path.with_name("state.json"))
+                candidates.add(path.with_name("context.md"))
+                candidates.add(path.with_name("tools.md"))
+    rid = str(run_id or s.get("pipeline_run_id") or s.get("task_uuid") or "").strip()
+    if rid:
+        try:
+            from utils.file_manager import paths_for_task
+
+            task_paths = paths_for_task(rid)
+            candidates.update(
+                {
+                    task_paths.state_path,
+                    task_paths.context_path,
+                    task_paths.run_dir / "tools.md",
+                }
+            )
+        except Exception:
+            pass
+    for path in candidates:
+        try:
+            resolved = path.resolve()
+            if resolved.name not in {"context.md", "state.json", "tools.md"}:
+                continue
+            if resolved.exists() and resolved.is_file():
+                resolved.unlink()
+                deleted.append(str(resolved))
+        except OSError:
+            continue
+    return deleted
+
+
+def request_pipeline_abort(
+    reason: str = "aborted",
+    run_id: str | None = None,
+    task_uuid: str | None = None,
+) -> dict[str, Any]:
+    """Abort the active workflow immediately and clear transient gate state."""
+    rid = run_id or task_uuid
+    _PIPELINE_STOP_EVENT.set()
+    deleted = _delete_current_run_artifacts(rid)
+    try:
+        clear_clarification()
+        clear_leader_stream_buffer()
+        clear_reasoning_buffer()
+        reset_stream_token_counters()
+        clear_leader_action()
+        clear_ambassador_substate()
+        clear_leader_substate()
+        clear_curator_substate()
+        clear_worker_state()
+        clear_secretary_substate()
+        clear_secretary_commands()
+        clear_explainer_substate()
+        clear_update_diffs()
+        set_paused_for_review(False, None)
+    except Exception:
+        pass
+    s = load_session()
+    s["pipeline_active_step"] = "stopped"
+    s["pipeline_status_message"] = "Stopped"
+    s["pipeline_graph_failed"] = False
+    s["pipeline_paused_at_gate"] = False
+    s["pipeline_run_finished"] = True
+    s["pipeline_stop_phase"] = "idle"
+    s["pipeline_abort_reason"] = str(reason or "aborted")[:300]
+    s["context_accept_status"] = "none"
+    s["pipeline_toast"] = "Stopped"
+    s["pipeline_toast_until"] = time.time() + 3.0
+    s["monitor_command_queue"] = []
+    for key in ("paused_for_review", "check_done", "last_node", "should_finalize", "context_path"):
+        s.pop(key, None)
+    save_session(s)
+    _RUN_FINISHED.set()
+    return {"aborted": True, "reason": str(reason or "aborted"), "deleted": deleted}
 
 
 def clear_pipeline_stop() -> None:
@@ -387,6 +474,15 @@ def transition_pipeline_begin_run() -> None:
     s["pipeline_paused_at_gate"] = False
     s["pipeline_graph_failed"] = False
     s["pipeline_busy_ts"] = time.time()
+    save_session(s)
+
+
+def set_pipeline_run_id(run_id: str | None) -> None:
+    s = load_session()
+    if run_id:
+        s["pipeline_run_id"] = str(run_id)
+    else:
+        s.pop("pipeline_run_id", None)
     save_session(s)
 
 

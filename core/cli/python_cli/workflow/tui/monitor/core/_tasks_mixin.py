@@ -1,10 +1,10 @@
 """Mixin: task dispatch, countdown, cleanup, exit helpers."""
 from __future__ import annotations
 
-import threading
 import time
 
 from ._constants import _GATE_WAITING, _GATE_REGEN, _SPINNER
+from .._task_pool import submit_monitor_task
 
 
 class _TasksMixin:
@@ -105,7 +105,7 @@ class _TasksMixin:
 
             self._safe_ui(_clear)
 
-        threading.Thread(target=_run, daemon=True).start()
+        submit_monitor_task(_run)
 
     def _ask_exit_inline(self) -> None:
         self._exit_confirm_mode = True

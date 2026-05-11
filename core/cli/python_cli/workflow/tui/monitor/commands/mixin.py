@@ -1,4 +1,4 @@
-﻿"""Mixin: _handle_cmd dispatcher; sub-handlers live in command modules."""
+"""Mixin: _handle_cmd dispatcher; sub-handlers live in command modules."""
 from __future__ import annotations
 
 from core.cli.python_cli.i18n import t

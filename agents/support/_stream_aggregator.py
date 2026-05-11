@@ -151,6 +151,9 @@ def aggregate_stream(
                         logger.info("[%s] clarification (JSON) triggered: %d questions", agent_name, len(qs))
                         _deadline = time.time() + 600
                         while _ws.is_clarification_pending() and time.time() < _deadline:
+                            if _ws.is_pipeline_stop_requested():
+                                _ws.clear_clarification()
+                                return "", usage_prompt, usage_completion, usage_cache_read, usage_cache_write, None
                             time.sleep(0.5)
                         clarif_answer = _ws.get_clarification_answer() or "__skip__"
                         _ws.clear_clarification()
@@ -171,6 +174,9 @@ def aggregate_stream(
                         logger.info("[%s] clarification (tag) triggered: %s", agent_name, _q[:60])
                         _deadline = time.time() + 600
                         while _ws.is_clarification_pending() and time.time() < _deadline:
+                            if _ws.is_pipeline_stop_requested():
+                                _ws.clear_clarification()
+                                return "", usage_prompt, usage_completion, usage_cache_read, usage_cache_write, None
                             time.sleep(0.5)
                         clarif_answer = _ws.get_clarification_answer() or "__skip__"
                         _ws.clear_clarification()

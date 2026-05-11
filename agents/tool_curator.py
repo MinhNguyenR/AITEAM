@@ -1,19 +1,18 @@
-﻿"""
-AI Agentic Framework â€” Tool Curator Agent
+"""
+AI Agentic Framework - Tool Curator Agent
 ==========================================
-Reads context.md â†’ LLM â†’ writes tools.md (same dir).
+Reads context.md -> LLM -> writes tools.md (same dir).
 
 
-Pipeline: Ambassador â†’ Leader â†’ Human Gate â†’ Tool Curator â†’ Finalize.
+Pipeline: Ambassador -> Leader -> Human Gate -> Tool Curator -> Finalize.
 
 
 Substates pushed to workflow session (TUI tree):
-    reading      â†’ reading context.md
-    thinking     â†’ LLM analyzing dependencies
-    looking_for  â†’ scanning project for installed packages (pip list)
-    writing      â†’ writing tools.md
+    reading      -> reading context.md
+    thinking     -> LLM analyzing dependencies
+    looking_for  -> scanning project for installed packages (pip list)
+    writing      -> writing tools.md
 """
-
 
 from __future__ import annotations
 
@@ -34,14 +33,14 @@ from utils.file_manager import atomic_write_text
 logger = logging.getLogger(__name__)
 
 
-
-
-_TOOL_CURATOR_SYSTEM_PROMPT = """You are TOOL_CURATOR â€” a senior dependency / tooling advisor.
+_TOOL_CURATOR_SYSTEM_PROMPT = """You are TOOL_CURATOR - a senior dependency / tooling advisor.
 
 
 You receive a Leader's context.md describing a coding task plus a list of
 packages already installed in the project venv. You must produce a concise
 tools.md aimed at human readers.
+Setup commands are Secretary-only. Workers must never receive setup/scaffold
+commands as their own work.
 
 
 Output (Markdown only, no JSON, no fences):
@@ -51,7 +50,7 @@ Output (Markdown only, no JSON, no fences):
 
 
 ## Already Installed
-- `package-name` â€” one-line purpose for this task
+- `package-name` - one-line purpose for this task
 
 
 ## Setup Commands
@@ -71,16 +70,16 @@ pip install pkg-a pkg-b
 Rules:
 - Only list packages truly needed by the context.md task.
 - If the task needs project scaffolding or dependency installation, put exact safe terminal commands under Setup Commands.
+- Setup Commands are for Secretary only and must run before workers start.
+- If a project scaffold already exists, say "No setup required" instead of emitting scaffold commands.
+- For React/Vite/new frontend projects in an empty workspace, include the project creation command before any worker-facing notes.
 - Do not invent packages. Prefer stdlib when sufficient and say so.
 - Keep it under ~40 lines. Be terse.
 """
 
 
-
-
 class ToolCurator(BaseAgent):
     """Generates tools.md after the human accepts context.md."""
-
 
     def __init__(self, budget_limit_usd: Optional[float] = None):
         cfg = config.get_worker("TOOL_CURATOR") or {}
@@ -94,12 +93,10 @@ class ToolCurator(BaseAgent):
             registry_role_key="TOOL_CURATOR",
         )
 
-
     # ===== CORE =====
 
-
     def generate_tools(self, context_path: str | Path) -> str:
-        """Read context.md â†’ LLM â†’ write tools.md.
+        """Read context.md -> LLM -> write tools.md.
 
 
         Returns the path to tools.md (string).
@@ -109,24 +106,25 @@ class ToolCurator(BaseAgent):
         if not ctx_path.exists():
             raise FileNotFoundError(f"context.md not found: {ctx_path}")
 
-
-        # â”€â”€ 1. reading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # 1. reading
         self._set_substate("reading", f"context.md ({ctx_path.name})")
         context_text = ctx_path.read_text(encoding="utf-8", errors="replace")
-        logger.info("[%s] Loaded context: %s (%d chars)", self.agent_name,
-                    ctx_path, len(context_text))
+        logger.info(
+            "[%s] Loaded context: %s (%d chars)",
+            self.agent_name,
+            ctx_path,
+            len(context_text),
+        )
 
-
-        # â”€â”€ 3. looking_for: pip list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        # NOTE: ordered "reading â†’ thinking â†’ looking_for â†’ writing" per spec,
+        # 3. looking_for: pip list
+        # NOTE: ordered "reading -> thinking -> looking_for -> writing" per spec,
         # but we collect the pip snapshot before LLM call so the prompt can
-        # reference installed packages. Push the substate transition readingâ†’
-        # looking_forâ†’thinking explicitly so the TUI tree still tells the story.
+        # reference installed packages. Push the substate transition reading ->
+        # looking_for -> thinking explicitly so the TUI tree still tells the story.
         self._set_substate("looking_for", "pyproject.toml, pip list")
         installed = self._installed_packages()
 
-
-        # â”€â”€ 2. thinking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # 2. thinking
         self._set_substate("thinking", "analyzing dependencies")
         user_prompt = self._build_prompt(context_text, installed)
         try:
@@ -136,23 +134,24 @@ class ToolCurator(BaseAgent):
             self._clear_substate()
             raise
 
-
         tools_content = self.format_output(response)
         if not tools_content.strip():
             self._clear_substate()
             raise ValueError("Tool curator returned empty content")
 
-
-        # â”€â”€ 4. writing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # 4. writing
         self._set_substate("writing", "tools.md")
         tools_path = ctx_path.parent / "tools.md"
         atomic_write_text(tools_path, tools_content, encoding="utf-8")
-        logger.info("[%s] tools.md written (%d chars) â†’ %s",
-                    self.agent_name, len(tools_content), tools_path)
-
+        logger.info(
+            "[%s] tools.md written (%d chars) -> %s",
+            self.agent_name,
+            len(tools_content),
+            tools_path,
+        )
 
         self.save_knowledge(
-            title=f"Tool list â€” {self.agent_name}",
+            title=f"Tool list - {self.agent_name}",
             content=tools_content,
             tags=["tools", "dependencies", self.agent_name.lower()],
         )
@@ -162,8 +161,8 @@ class ToolCurator(BaseAgent):
             cost=self.session_cost,
         )
 
-
         from utils.graphrag_utils import try_ingest_context, try_ingest_prompt_doc
+
         try_ingest_context(tools_path, {"source": "tool_curator"}, self.agent_name)
         # Best-effort task_uuid recovery from run_dir name (cache/runs/<uuid>/...)
         task_uuid = ctx_path.parent.name
@@ -175,17 +174,15 @@ class ToolCurator(BaseAgent):
             tools_content[:8000],
         )
 
-
         self._clear_substate()
         return str(tools_path)
 
-
     # ===== HELPERS =====
-
 
     def _build_prompt(self, context_text: str, installed: List[str]) -> str:
         installed_block = (
-            "\n".join(f"- {p}" for p in installed[:200]) if installed
+            "\n".join(f"- {p}" for p in installed[:200])
+            if installed
             else "(no packages detected)"
         )
         return (
@@ -199,50 +196,62 @@ class ToolCurator(BaseAgent):
             f"{installed_block}\n"
         )
 
-
     def _installed_packages(self) -> List[str]:
         """Return a sorted list of `name==version` strings from `pip list` in
         the active Python interpreter. Empty on failure."""
         try:
             proc = subprocess.run(
-                [sys.executable, "-m", "pip", "list",
-                 "--format=freeze", "--disable-pip-version-check"],
-                capture_output=True, text=True, timeout=20, check=False,
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "list",
+                    "--format=freeze",
+                    "--disable-pip-version-check",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=20,
+                check=False,
             )
         except (OSError, subprocess.SubprocessError) as e:
             logger.debug("[%s] pip list failed: %s", self.agent_name, e)
             return []
         if proc.returncode != 0:
-            logger.debug("[%s] pip list rc=%s stderr=%s",
-                         self.agent_name, proc.returncode, proc.stderr[:200])
+            logger.debug(
+                "[%s] pip list rc=%s stderr=%s",
+                self.agent_name,
+                proc.returncode,
+                proc.stderr[:200],
+            )
             return []
-        lines = [ln.strip() for ln in (proc.stdout or "").splitlines()
-                 if ln.strip() and "==" in ln]
+        lines = [
+            ln.strip()
+            for ln in (proc.stdout or "").splitlines()
+            if ln.strip() and "==" in ln
+        ]
         return sorted(lines)
-
 
     def _set_substate(self, substate: str, detail: str = "") -> None:
         try:
             from core.runtime import session as ws
+
             ws.set_curator_substate(substate, detail)
         except (ImportError, RuntimeError):
             pass
 
-
     def _clear_substate(self) -> None:
         try:
             from core.runtime import session as ws
+
             ws.clear_curator_substate()
         except (ImportError, RuntimeError):
             pass
 
-
     # ===== ABSTRACT IMPLEMENTATIONS =====
-
 
     def execute(self, task: str, **kwargs) -> str:
         return self.generate_tools(task)
-
 
     def format_output(self, response: str) -> str:
         if not response:
@@ -253,10 +262,8 @@ class ToolCurator(BaseAgent):
         # Prefer the first H1 if the model added preamble.
         m = re.search(r"^# .+", text, re.MULTILINE)
         if m:
-            return text[m.start():].strip()
+            return text[m.start() :].strip()
         return text
-
-
 
 
 __all__ = ["ToolCurator"]

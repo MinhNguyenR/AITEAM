@@ -702,7 +702,7 @@
 
         "clarify.needs_info": "Cần thêm thông tin",
 
-        "clarify.btw_hint": "/btw <nói thêm>  .  /skip → đơn giản nhất",
+        "clarify.btw_hint": "/btw <nói thêm>  .  /skip -> đơn giản nhất",
 
         "clarify.default_q": "Bạn muốn cụ thể là gì?",
 
@@ -720,7 +720,7 @@
 
         "pipeline.complete": "Pipeline complete",
 
-        "pipeline.ask_redirect": "→ Đã chuyển qua Ask Mode",
+        "pipeline.ask_redirect": "-> Đã chuyển qua Ask Mode",
 
         "pipeline.fail_hint": "Dùng [bold]/log[/bold]  .  /agent <task> thử lại  .  /exit để thoát",
 
@@ -810,9 +810,9 @@
 
         "cmd.log_header": "Nhật ký hoạt động",
 
-        "cmd.log_hint": "↑↓ cuộn  .  /exit -- về CLI chính  .  q hoặc /back -- về workflow",
+        "cmd.log_hint": "up/down cuộn  .  /exit -- về CLI chính  .  q hoặc /back -- về workflow",
 
-        "cmd.log_hints_full": "↑↓ PageUp/Down cuộn  .  /exit -- về CLI  .  q hoặc /back -- về workflow",
+        "cmd.log_hints_full": "up/down PageUp/Down cuộn  .  /exit -- về CLI  .  q hoặc /back -- về workflow",
 
         "cmd.check_status_editing": "đang sửa",
 
@@ -968,7 +968,7 @@
 
         "cmd.check_change": "View changed roles",
 
-        "cmd.open": "Má»Ÿ chi tiết lÆ°ợt | Open turn detail",
+        "cmd.open": "Mở chi tiết lượt | Open turn detail",
 
         "cmd.file_suggest": "File suggestion",
 
@@ -976,13 +976,13 @@
 
         "cmd.info": "Danh sách Agent | Agent registry",
 
-        "cmd.dashboard": "Bảng Ä‘iá»u khiá»ƒn | Dashboard",
+        "cmd.dashboard": "Bảng điều khiển | Dashboard",
 
         "cmd.settings": "Thiết lập CLI | CLI settings",
 
-        "cmd.help": "HÆ°á»›ng dẫn sử dụng | Help guide",
+        "cmd.help": "Hướng dẫn sử dụng | Help guide",
 
-        "cmd.workflow": "Má»Ÿ monitor TUI | Open monitor",
+        "cmd.workflow": "Mở monitor TUI | Open monitor",
 
         "cmd.explain_codebase": "Explain entire codebase",
 
@@ -992,7 +992,7 @@
 
         "cmd.back": "Quay lại | Go back",
 
-        "cmd.exit": "Vá» menu chính | Main menu",
+        "cmd.exit": "Về menu chính | Main menu",
 
         "cmd.daily": "Ngân sách ngày | Daily budget",
 
@@ -1000,9 +1000,9 @@
 
         "cmd.yearly": "Ngân sách năm | Yearly budget",
 
-        "cmd.history": "Lá»‹ch sử chi phí | Cost history",
+        "cmd.history": "Lịch sử chi phí | Cost history",
 
-        "cmd.total": "Tá»*ng hợp sử dụng | Total usage",
+        "cmd.total": "Tổng hợp sử dụng | Total usage",
 
         "cmd.budget": "Thiết lập ngân sách | Set budget",
 
@@ -1012,21 +1012,21 @@
 
         "cmd.prev": "Trang trước | Prev page",
 
-        "cmd.auto_accept": "Tự Ä‘á»™ng cháº¥p nhận | Auto-accept",
+        "cmd.auto_accept": "Tự động chấp nhận | Auto-accept",
 
         "cmd.context_act": "Hành động context | Context action",
 
         "cmd.help_ext": "Terminal ngoài | External terminal",
 
-        "cmd.lang": "Äá»*i ngôn ngữ | Change language",
+        "cmd.lang": "Đổi ngôn ngữ | Change language",
 
-        "cmd.model": "Äá»*i model role | Change role model",
+        "cmd.model": "Đổi model role | Change role model",
 
-        "cmd.prompt": "Äá»*i prompt role | Change role prompt",
+        "cmd.prompt": "Đổi prompt role | Change role prompt",
 
         "cmd.sampling": "Chỉnh sampling | Adjust sampling",
 
-        "cmd.reset": "Reset mặc Ä‘á»‹nh | Reset to default",
+        "cmd.reset": "Reset mặc định | Reset to default",
 
         "cmd.free": "Tìm model free | Find free models",
 
@@ -1642,7 +1642,7 @@
 
         "clarify.needs_info": "Needs more info",
 
-        "clarify.btw_hint": "/btw <note>  .  /skip â†’ simplest option",
+        "clarify.btw_hint": "/btw <note>  .  /skip -> simplest option",
 
         "clarify.default_q": "What exactly do you need?",
 
@@ -1660,7 +1660,7 @@
 
         "pipeline.complete": "Pipeline complete",
 
-        "pipeline.ask_redirect": "â†’ Redirected to Ask Mode",
+        "pipeline.ask_redirect": "-> Redirected to Ask Mode",
 
         "pipeline.fail_hint": "Use [bold]/log[/bold]  .  /agent <task> to retry  .  /exit to quit",
 
@@ -1750,9 +1750,9 @@
 
         "cmd.log_header": "Activity Log",
 
-        "cmd.log_hint": "â†‘â†“ scroll  .  /exit -- to main CLI  .  q or /back -- to workflow",
+        "cmd.log_hint": "up/down scroll  .  /exit -- to main CLI  .  q or /back -- to workflow",
 
-        "cmd.log_hints_full": "â†‘â†“ PageUp/Down scroll  .  /exit -- to CLI  .  q or /back -- to workflow",
+        "cmd.log_hints_full": "up/down PageUp/Down scroll  .  /exit -- to CLI  .  q or /back -- to workflow",
 
         "cmd.check_status_editing": "editing",
 
@@ -1872,7 +1872,7 @@
 
         "exit.warn_desc": "Exiting will delete all generated artifacts from this run:",
 
-        "exit.artifact_removal": "â€¢ context.md and state.json will be removed\nâ€¢ Activity history and token records are preserved\nâ€¢ Pipeline state resets to idle",
+        "exit.artifact_removal": "- context.md and state.json will be removed\n- Activity history and token records are preserved\n- Pipeline state resets to idle",
 
         "exit.cancel_keep": "Cancel -- keep running",
 

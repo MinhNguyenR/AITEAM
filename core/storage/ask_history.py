@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from core.config.constants import AI_TEAM_HOME
@@ -90,7 +91,7 @@ def get_active_chat(store: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def append_message(store: Dict[str, Any], chat_name: str, role: str, content: str, model: str = "", token_limit: int = 0) -> None:
     _ = store
-    _store.append_message(chat_name, role, content, model=model, token_limit=token_limit)
+    return _store.append_message(chat_name, role, content, model=model, token_limit=token_limit)
 
 
 def set_chat_mode(store: Dict[str, Any], chat_name: str, mode: str) -> bool:

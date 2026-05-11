@@ -15,6 +15,8 @@ from core.cli.python_cli.ui.ui import console, clear_screen, PASTEL_BLUE, PASTEL
 from core.cli.python_cli.ui.palette_app import ask_with_palette
 from core.domain.prompts import ASK_MODE_SYSTEM_PROMPT
 from core.storage import ask_history
+from core.storage._token_window import estimate_tokens, memory_budget_tokens
+from core.storage.memory_coordinator import MemoryCoordinator
 from core.cli.python_cli.i18n import t
 from utils.input_validator import PromptInvalid, PromptTooLong, validate_user_prompt
 
@@ -68,8 +70,10 @@ def run_ask_mode(
     _render_loaded_history(active)
     if prompt.strip():
         _, max_tokens, _, _ = _chat_model_settings(active.get("mode", "standard"))
-        ask_history.append_message(store, active["name"], "user", prompt.strip(), token_limit=max_tokens)
+        appended = ask_history.append_message(store, active["name"], "user", prompt.strip(), token_limit=max_tokens)
         active = ask_history.get_active_chat(store) or active
+        if isinstance(appended, dict):
+            MemoryCoordinator().on_message(str(appended.get("conversation_id") or ""), str(appended.get("message_id") or ""))
         if _is_temp_chat_name(active.get("name", "")):
             new_name = _chat_name_from_prompt(store, prompt)
             if ask_history.rename_chat(store, active["name"], new_name):
@@ -190,8 +194,10 @@ def run_ask_mode(
             and active["messages"][-1].get("content") == text
         ):
             _, max_tokens, _, _ = _chat_model_settings(active.get("mode", "standard"))
-            ask_history.append_message(store, chat_name, "user", text, token_limit=max_tokens)
+            appended = ask_history.append_message(store, chat_name, "user", text, token_limit=max_tokens)
             appended_user = True
+            if isinstance(appended, dict):
+                MemoryCoordinator().on_message(str(appended.get("conversation_id") or ""), str(appended.get("message_id") or ""))
         active = ask_history.get_active_chat(store) or active
         if appended_user and _is_temp_chat_name(active.get("name", "")):
             new_name = _chat_name_from_prompt(store, text)
@@ -213,13 +219,28 @@ def run_ask_mode(
             log_system_action("ask.prompt_override_invalid", _ask_role)
         sys_content = _ask_system_prompt + (_explain_only_suffix() if explain_only else "")
         model_messages = [{"role": "system", "content": sys_content}]
-        for m in active.get("messages", [])[-20:]:
+        convo_id = str(active.get("id") or "")
+        memory_window = MemoryCoordinator().build_context_window(
+            convo_id,
+            messages=active.get("messages", []),
+            budget=memory_budget_tokens(),
+            system_prompt_tokens=estimate_tokens(sys_content, model=model),
+            model=model,
+            query=text,
+            role_key=_ask_role,
+            importance="important" if explain_only or looks_like_code_intent(text) else "normal",
+        )
+        for m in memory_window:
             role = m.get("role")
             if role in ("user", "assistant"):
                 model_messages.append({"role": role, "content": m.get("content", "")})
+            elif role == "system":
+                model_messages.append({"role": "system", "content": m.get("content", "")})
         try:
             answer = _ask_model(active.get("mode", "standard"), model_messages)
-            ask_history.append_message(store, chat_name, "assistant", answer, model=model, token_limit=max_tokens)
+            appended = ask_history.append_message(store, chat_name, "assistant", answer, model=model, token_limit=max_tokens)
+            if isinstance(appended, dict):
+                MemoryCoordinator().on_message(str(appended.get("conversation_id") or ""), str(appended.get("message_id") or ""))
             ask_history.save_store(store)
             active_after = ask_history.get_active_chat(store) or active
             msg_n = len(active_after.get("messages") or [])

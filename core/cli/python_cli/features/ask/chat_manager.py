@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from typing import Literal, Optional
+from concurrent.futures import ThreadPoolExecutor
 
 from rich.box import ROUNDED
 from rich.prompt import Prompt
@@ -16,6 +17,23 @@ from core.cli.python_cli.i18n import t
 
 from .history_renderer import _ask_input_with_header
 from .model_selector import _chat_model_settings
+
+_WARM_POOL = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ask-memory-warm")
+
+
+def _warm_chat_page(chats: list[dict]) -> None:
+    def _warm(item: dict) -> None:
+        try:
+            from core.storage.conversation_archive import fast_load
+
+            convo_id = str(item.get("id") or "")
+            if convo_id:
+                fast_load(convo_id)
+        except Exception:
+            return
+
+    for item in chats[:8]:
+        _WARM_POOL.submit(_warm, item)
 
 
 def _new_chat_name() -> str:
@@ -104,6 +122,7 @@ def _pick_chat_on_ask_entry(store: dict, force_new_chat: bool = False) -> Option
         start_idx = page * page_size
         end_idx = min(start_idx + page_size, len(chats))
         page_chats = chats[start_idx:end_idx]
+        _warm_chat_page(page_chats)
 
         # Capture the UI to ANSI so we can push palette to bottom
         import shutil

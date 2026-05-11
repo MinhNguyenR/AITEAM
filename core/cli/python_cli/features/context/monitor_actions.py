@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from core.cli.python_cli.features.context.common import (
     delete_state_json_on_accept,

@@ -30,7 +30,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
         "reasoning": {"effort": "high", "exclude": False},
     },
     "COMPACT_WORKER": {
-        "model": "x-ai/grok-4.1-fast",
+        "model": "openai/gpt-4.1-nano",
         "role": "Compact",
         "reason": "Xử lý context window cực lớn, tóm tắt và nén thông tin cho các pipeline dài.",
         "tier": "COMPACT",

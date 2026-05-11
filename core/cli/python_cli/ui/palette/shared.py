@@ -208,7 +208,7 @@ def palette_gutter_input_row(*, buffer: Buffer, before_input: str, get_valid_ite
         )
 
     row = VSplit(
-        [_gutter(), center],
+        [_gutter(), center, _gutter()],
         height=lambda: D.exact(
             palette_command_input_height(buffer=buffer, before_input=before_input)
         ),

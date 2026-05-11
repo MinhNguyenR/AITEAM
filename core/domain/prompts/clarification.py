@@ -1,4 +1,4 @@
-﻿def build_clarification_qa_prompt() -> str:
+def build_clarification_qa_prompt() -> str:
     return (
         "You are a Technical Planner in CLI mode.\n"
         "Analyze the task and project state. Decide whether clarification is needed.\n\n"
@@ -24,15 +24,15 @@
         "## Strict output schema\n"
         'Use EXACTLY this JSON object format (required by json_object mode):\n\n'
         '{"questions": [\n'
-        '  {"question": "<one concise question>", "options": ["<option â€” rationale>", "<option â€” rationale>"]}\n'
+        '  {"question": "<one concise question>", "options": ["<option - rationale>", "<option - rationale>"]}\n'
         ']}\n\n'
         "If NO clarification needed:\n"
         '{"questions": []}\n\n'
 
-        "EXAMPLE â€” clarification needed:\n"
-        '{"questions": [{"question": "Which storage backend?", "options": ["PostgreSQL â€” relational, ACID", "MongoDB â€” flexible schema"]}]}\n\n'
+        "EXAMPLE - clarification needed:\n"
+        '{"questions": [{"question": "Which storage backend?", "options": ["PostgreSQL - relational, ACID", "MongoDB - flexible schema"]}]}\n\n'
 
-        "EXAMPLE â€” no clarification:\n"
+        "EXAMPLE - no clarification:\n"
         '{"questions": []}\n\n'
 
         "ABSOLUTE RULE: Output ONLY a valid JSON object with key \"questions\". "

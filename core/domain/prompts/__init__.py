@@ -21,6 +21,12 @@ from .leader import (
     build_leader_low_prompt,
     build_leader_high_prompt,
 )
+from .workers import (
+    BASE_WORKER_OUTPUT_CONTRACT,
+    WORKER_SPECIALIZATIONS,
+    build_worker_system_prompt,
+    get_worker_prompt,
+)
 
 __all__ = [
     "AMBASSADOR_SYSTEM_PROMPT",
@@ -36,4 +42,8 @@ __all__ = [
     "build_leader_medium_prompt",
     "build_leader_low_prompt",
     "build_leader_high_prompt",
+    "BASE_WORKER_OUTPUT_CONTRACT",
+    "WORKER_SPECIALIZATIONS",
+    "build_worker_system_prompt",
+    "get_worker_prompt",
 ]

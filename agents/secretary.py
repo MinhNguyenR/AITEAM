@@ -1,4 +1,5 @@
 """Secretary Agent. Runs whitelisted commands, handles fallbacks."""
+
 from __future__ import annotations
 
 
@@ -61,11 +62,8 @@ Rules:
 """
 
 
-
-
 class Secretary(BaseAgent):
     """Executes validation/setup commands from the Worker's plan."""
-
 
     def __init__(self, budget_limit_usd: float = 1.0):
         cfg = config.get_worker("SECRETARY") or {}
@@ -79,7 +77,6 @@ class Secretary(BaseAgent):
             registry_role_key="SECRETARY",
         )
 
-
     def execute_commands(
         self,
         context_path: str | Path,
@@ -92,15 +89,19 @@ class Secretary(BaseAgent):
         project_root = project_root or str(ctx_path.parent)
         _ws = self._session()
 
-
         # Secretary is terminal-only. Reading context text here is prompt assembly,
         # not a TUI "reading files" phase.
-        ctx_text = ctx_path.read_text(encoding="utf-8", errors="replace") if ctx_path.exists() else ""
+        ctx_text = (
+            ctx_path.read_text(encoding="utf-8", errors="replace")
+            if ctx_path.exists()
+            else ""
+        )
         tools_text = ""
         if tools_path:
             tp = Path(tools_path)
-            tools_text = tp.read_text(encoding="utf-8", errors="replace") if tp.exists() else ""
-
+            tools_text = (
+                tp.read_text(encoding="utf-8", errors="replace") if tp.exists() else ""
+            )
 
         # Derive commands via LLM if not provided
         if not commands:
@@ -112,7 +113,6 @@ class Secretary(BaseAgent):
             raw = self.call_api(user_prompt)
             commands = self._parse_commands(raw)
 
-
         # Phase 2: Using
         results: list[dict] = []
         normalized_commands: list[str] = []
@@ -120,12 +120,16 @@ class Secretary(BaseAgent):
             normalized_commands.extend(self._normalize_command(cmd))
         for cmd in normalized_commands[:8]:
             from core.sandbox.policy import is_command_safe
+
             safe, reason = is_command_safe(cmd)
             if not safe:
-                results.append({"cmd": cmd, "success": False, "output": "BLOCKED: unsafe command"})
-                logger.warning("[Secretary] blocked unsafe command: %s (%s)", cmd, reason)
+                results.append(
+                    {"cmd": cmd, "success": False, "output": "BLOCKED: unsafe command"}
+                )
+                logger.warning(
+                    "[Secretary] blocked unsafe command: %s (%s)", cmd, reason
+                )
                 continue
-
 
             self._sub("using", _ws, cmd)
             if _ws:
@@ -134,10 +138,8 @@ class Secretary(BaseAgent):
                 except Exception:
                     pass
 
-
             result = self._run(cmd, project_root, _ws)
             results.append(result)
-
 
             # Fallback on failure
             if not result["success"]:
@@ -155,12 +157,12 @@ class Secretary(BaseAgent):
                             pass
                     results.append(self._run(fb, project_root, _ws))
 
-
         self._clear(_ws)
         return {"commands_run": results}
 
-
-    def analyze_input(self, task_text: str, project_root: str | None = None) -> list[dict]:
+    def analyze_input(
+        self, task_text: str, project_root: str | None = None
+    ) -> list[dict]:
         """Analyze raw user input and return clarification questions for the TUI gate."""
         _ws = self._session()
         self._sub("asking", _ws, "analyzing input")
@@ -186,6 +188,7 @@ class Secretary(BaseAgent):
         finally:
             try:
                 from utils.graphrag_utils import try_ingest_prompt_doc
+
                 try_ingest_prompt_doc(
                     "preflight",
                     "Secretary",
@@ -196,7 +199,6 @@ class Secretary(BaseAgent):
             except Exception:
                 pass
 
-
     @staticmethod
     def should_redirect_to_ask(task_text: str) -> bool:
         text = str(task_text or "").strip().lower()
@@ -206,25 +208,46 @@ class Secretary(BaseAgent):
         if text in greeting:
             return True
         build_words = (
-            "code", "build", "create", "make", "fix", "implement", "write",
-            "sửa", "tạo", "viết", "làm", "xây", "app", "web", "api", "file",
+            "code",
+            "build",
+            "create",
+            "make",
+            "fix",
+            "implement",
+            "write",
+            "sửa",
+            "tạo",
+            "viết",
+            "làm",
+            "xây",
+            "app",
+            "web",
+            "api",
+            "file",
         )
         if any(word in text for word in build_words):
             return False
-        question_markers = ("?", "là gì", "như nào", "how ", "what ", "why ", "explain", "giải thích")
+        question_markers = (
+            "?",
+            "là gì",
+            "như nào",
+            "how ",
+            "what ",
+            "why ",
+            "explain",
+            "giải thích",
+        )
         return any(marker in text for marker in question_markers)
 
-
     # Helpers
-
 
     def _session(self):
         try:
             from core.runtime import session as ws
+
             return ws
         except Exception:
             return None
-
 
     def _sub(self, sub: str, _ws, detail: str = "") -> None:
         if _ws:
@@ -233,7 +256,6 @@ class Secretary(BaseAgent):
             except Exception:
                 pass
 
-
     def _clear(self, _ws) -> None:
         if _ws:
             try:
@@ -241,14 +263,18 @@ class Secretary(BaseAgent):
             except Exception:
                 pass
 
-
     def _parse_commands(self, raw: str) -> list[str]:
-        m = re.search(r'--- COMMANDS ---(.*?)(?:--- END COMMANDS ---|$)', raw, re.DOTALL)
+        m = re.search(
+            r"--- COMMANDS ---(.*?)(?:--- END COMMANDS ---|$)", raw, re.DOTALL
+        )
         if m:
-            lines = [ln.strip() for ln in m.group(1).split('\n') if ln.strip()]
+            lines = [ln.strip() for ln in m.group(1).split("\n") if ln.strip()]
         else:
-            lines = [ln.strip() for ln in raw.split('\n')
-                     if ln.strip() and re.match(r'^[a-zA-Z]', ln.strip())]
+            lines = [
+                ln.strip()
+                for ln in raw.split("\n")
+                if ln.strip() and re.match(r"^[a-zA-Z]", ln.strip())
+            ]
         out: list[str] = []
         for line in lines:
             out.extend(Secretary._normalize_command(line))
@@ -271,7 +297,6 @@ class Secretary(BaseAgent):
                 continue
             cleaned.append(s)
         return cleaned[:4]
-
 
     def _parse_questions(self, raw: str) -> list[dict]:
         text = str(raw or "").strip()
@@ -298,18 +323,20 @@ class Secretary(BaseAgent):
             question = str(item.get("question") or "").strip()
             options = item.get("options") or []
             if question and isinstance(options, list) and options:
-                result.append({"question": question, "options": [str(o) for o in options if str(o).strip()]})
+                result.append(
+                    {
+                        "question": question,
+                        "options": [str(o) for o in options if str(o).strip()],
+                    }
+                )
         return result
-
 
     def _run(self, cmd: str, cwd: str, _ws) -> dict:
         from core.sandbox.executor import run_sandboxed
 
-
         result = run_sandboxed(cmd, cwd=cwd, timeout=120, use_project_venv=True)
         out = result.output.strip()
         success = result.success
-
 
         if _ws:
             try:
@@ -318,32 +345,35 @@ class Secretary(BaseAgent):
                 pass
         return {"cmd": cmd, "success": success, "output": out[:2000]}
 
-
     def _get_fallback(self, failed_cmd: str, error: str) -> Optional[str]:
         try:
             from agents.support._api_client import make_openai_client
             from core.config.settings import openrouter_base_url
+
             client = make_openai_client(config.api_key, openrouter_base_url())
             resp = client.chat.completions.create(
                 model=self.model_name,
-                messages=[{"role": "user", "content":
-                    f"Command failed: `{failed_cmd}`\nError: {error[:400]}\n"
-                    "Output ONE corrected shell command (just the command, no explanation):"}],
-                max_tokens=80, temperature=0.1,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"Command failed: `{failed_cmd}`\nError: {error[:400]}\n"
+                        "Output ONE corrected shell command (just the command, no explanation):",
+                    }
+                ],
+                max_tokens=80,
+                temperature=0.1,
             )
             raw = (resp.choices[0].message.content or "").strip()
-            for line in raw.split('\n'):
-                line = line.strip().strip('`')
-                if line and re.match(r'^[a-zA-Z]', line):
+            for line in raw.split("\n"):
+                line = line.strip().strip("`")
+                if line and re.match(r"^[a-zA-Z]", line):
                     return line
         except Exception:
             pass
         return None
 
-
     def format_output(self, response: str) -> str:
         return response.strip()
-
 
     def execute(self, task: str, **kwargs) -> str:
         return str(self.execute_commands(task))

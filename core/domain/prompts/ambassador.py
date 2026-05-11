@@ -43,6 +43,10 @@ AMBASSADOR_SYSTEM_PROMPT = (
     "6) If uncertain MEDIUM vs HARD => MEDIUM. HARD is last resort.\n"
     "7) Never output EXPERT or ARCHITECT.\n\n"
 
+    "## Project setup signal\n"
+    "- If the user asks to create a new app/project/site from scratch, note that project scaffolding is likely needed.\n"
+    "- If the workspace/project already exists or the user asks to modify existing code, do not assume scaffolding is needed.\n\n"
+
     "## Output\n"
     "Return valid JSON only. No markdown. No extra text. No null values.\n"
     "{\n"

@@ -1,4 +1,4 @@
-﻿"""Central skill registry. Add new skills in subpackages and call register() from each module."""
+"""Central skill registry. Add new skills in subpackages and call register() from each module."""
 
 from __future__ import annotations
 

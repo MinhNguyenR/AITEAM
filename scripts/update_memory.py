@@ -1,5 +1,6 @@
 import os
 import re
+import ast
 from datetime import datetime
 
 # --- Cấu hình ---
@@ -23,66 +24,68 @@ INCLUDE_EXTS = ('.py', '.md', '.txt', '.yml', '.yaml', '.json', '.toml', '.ttf')
 
 def get_line_count(file_path):
     """Đếm số dòng trong file, trả về 0 cho file nhị phân hoặc lỗi."""
-    # Bỏ qua các loại file nhị phân phổ biến
     if file_path.endswith(('.ttf', '.bin', '.exe', '.dll')):
         return 0
     try:
-        # Mở file với encoding UTF-8, bỏ qua lỗi giải mã
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            return sum(1 for _ in f)  # Đếm số dòng
+            return sum(1 for _ in f)
     except:
-        return 0  # Trả về 0 nếu có lỗi (ví dụ: quyền truy cập)
+        return 0
 
 def extract_dependencies(file_path):
-    """Trích xuất các dependency cấp cao nhất từ file Python (chỉ core, agents, utils)."""
+    """Trích xuất tất cả các import từ file Python sử dụng AST để đảm bảo chính xác."""
     deps = set()
-    # Chỉ xử lý file Python
     if not file_path.endswith('.py'):
         return deps
     try:
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            content = f.read()
-            # Tìm các dòng import/from bằng regex (bắt đầu dòng)
-            matches = re.findall(r'^(?:from|import)\s+([\w\.]+)', content, re.MULTILINE)
-            for m in matches:
-                # Lấy gói gốc (phần trước dấu chấm đầu tiên)
-                root_pkg = m.split('.')[0]
-                # Chỉ quan tâm đến các gói nội bộ cụ thể
-                if root_pkg in ('core', 'agents', 'utils'):
-                    deps.add(root_pkg)
-    except:
-        pass  # Bỏ qua lỗi đọc file
+            tree = ast.parse(f.read(), filename=file_path)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        deps.add(alias.name)
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module:
+                        # Kết hợp module và names nếu cần chi tiết hơn, 
+                        # nhưng ở đây lấy module path là đủ để thấy connection
+                        deps.add(node.module)
+    except Exception:
+        # Fallback to regex if AST fails (e.g. syntax error in file)
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                matches = re.findall(r'^(?:from|import)\s+([\w\.]+)', content, re.MULTILINE)
+                for m in matches:
+                    deps.add(m)
+        except:
+            pass
     return deps
 
 def generate_tree(startpath):
     """Tạo cây thư mục, thống kê file/lines và bản đồ dependency."""
-    tree_lines = []  # Lưu các dòng mô tả cây thư mục
-    total_files = 0  # Tổng số file đã đếm
-    total_loc = 0    # Tổng số lines of code
-    all_deps = {}    # Bản đồ dependency: {relative_path: [deps]}
+    tree_lines = []
+    total_files = 0
+    total_loc = 0
+    all_deps = {}
 
-    # Duyệt cây thư mục theo thứ tự nhất quán (sắp xếp)
     for root, dirs, files in os.walk(startpath):
-        # Loại trừ thư mục không cần thiết và sắp xếp
         dirs[:] = sorted([d for d in dirs if d not in EXCLUDE_DIRS])
-        rel_root = os.path.relpath(root, startpath)  # Đường dẫn tương đối từ startpath
+        rel_root = os.path.relpath(root, startpath)
         
-        # Xử lý thư mục gốc (level 0)
         if rel_root == ".":
             top_files = sorted([f for f in files if f.endswith(INCLUDE_EXTS) and f not in EXCLUDE_FILES])
             for f in top_files:
                 loc = get_line_count(os.path.join(root, f))
-                tree_lines.append(f"|-- {f} ({loc} lines)")  # Định dạng cây
+                tree_lines.append(f"|-- {f} ({loc} lines)")
                 total_files += 1
                 total_loc += loc
-            continue  # Chuyển sang thư mục con
+            continue
 
-        # Tính mức độ lồng nhau để thụt lề
         level = rel_root.count(os.sep)
         indent = "|   " * level
-        tree_lines.append(f"{indent}|-- {os.path.basename(root)}/")  # Thêm thư mục vào cây
+        tree_lines.append(f"{indent}|-- {os.path.basename(root)}/")
         
-        sub_indent = "|   " * (level + 1)  # Thụt lề cho file con
+        sub_indent = "|   " * (level + 1)
         valid_files = sorted([f for f in files if f.endswith(INCLUDE_EXTS) and f not in EXCLUDE_FILES])
         
         for i, f in enumerate(valid_files):
@@ -91,38 +94,32 @@ def generate_tree(startpath):
             total_files += 1
             total_loc += loc
             
-            # Xác định prefix: "\\-- " cho file cuối cùng, "|-- " cho các file còn lại
             prefix = "\\-- " if i == len(valid_files) - 1 else "|-- "
             if loc > 0:
-                tree_lines.append(f"{sub_indent}{prefix}{f} ({loc} lines)")  # File có mã nguồn
+                tree_lines.append(f"{sub_indent}{prefix}{f} ({loc} lines)")
             else:
-                # File nhị phân hoặc rỗng
                 tree_lines.append(f"{sub_indent}{prefix}{f} (binary/0 lines)")
             
-            # Trích xuất dependency cho file Python
             if f.endswith('.py'):
                 f_deps = extract_dependencies(file_path)
                 if f_deps:
                     rel_f_path = os.path.relpath(file_path, startpath)
-                    all_deps[rel_f_path] = sorted(list(f_deps))  # Lưu bản đồ dependency
+                    all_deps[rel_f_path] = sorted(list(f_deps))
 
     return tree_lines, total_files, total_loc, all_deps
 
 def update_memory_md():
     """Hàm chính: tạo báo cáo và ghi vào memory.md."""
-    print("Generating tree...")
-    # Tạo cây thư mục, thống kê và bản đồ dependency
+    print("Generating tree and extracting all dependencies...")
     tree_lines, total_files, total_loc, dep_map = generate_tree(PROJECT_ROOT)
     
-    # Đọc nội dung cũ để giữ lại phần lịch sử (Session Summaries)
     old_content = ""
     if os.path.exists(MEMORY_MD_PATH):
         with open(MEMORY_MD_PATH, 'r', encoding='utf-8') as f:
             old_content = f.read()
 
-    now = datetime.now().strftime("%Y-%m-%d")  # Ngày hiện tại
+    now = datetime.now().strftime("%Y-%m-%d")
     
-    # Xây dựng nội dung output
     output = [
         "# Codebase Memory",
         "",
@@ -133,24 +130,22 @@ def update_memory_md():
         "## Structure",
         "```text"
     ]
-    output.extend(tree_lines)  # Thêm cây thư mục
-    output.extend(["```", ""])  # Đóng khối mã
+    output.extend(tree_lines)
+    output.extend(["```", ""])
 
     output.append("## Connections (Dependency Map)")
     output.append("")
-    # Chỉ tập trung vào các thư mục quan trọng để hiển thị dependency
-    interesting_folders = ('core/cli', 'agents', 'core/orchestration')
+    # Hiển thị tất cả connections từ tất cả các file Python
     for f_path, deps in sorted(dep_map.items()):
-        if any(f_path.startswith(folder) for folder in interesting_folders):
-            output.append(f"- **{f_path}**")
-            for d in deps:
-                output.append(f"  - imports {d}")  # Mỗi dependency trên một dòng
+        output.append(f"- **{f_path}**")
+        for d in deps:
+            output.append(f"  - imports {d}")
     output.append("")
 
     output.append("## Session Summaries")
     output.append("")
     
-    # Thêm tómắt phiên làm việc mới nhất (Phase 4)
+    # Phase 4
     output.append("### 4. Industrial AI Agentic Refactoring (Completed)")
     output.append("- **UI**: Detailed diffs with context windows (+green/-red) in `_update_state.py`.")
     output.append("- **Architecture**: Standardized slash-commands (`/back`, `/exit`, `/accept`, etc.) via `command_parser.py`.")
@@ -160,13 +155,12 @@ def update_memory_md():
     output.append("- **Roster**: Automated Worker roster in Leader prompts; `restore_worker` node for backup recovery.")
     output.append("")
 
-    # Trích xuất và giữ lại các tómắt phiên cũ (từ Phase 1-3)
+    # Trích xuất các tóm tắt cũ
     summaries = re.findall(r'(### [1-3]\..+?)(?=### |\Z)', old_content, re.DOTALL)
     for s in summaries:
         output.append(s.strip())
         output.append("")
 
-    # Ghi nội dung mới vào file memory.md
     with open(MEMORY_MD_PATH, 'w', encoding='utf-8') as f:
         f.write("\n".join(output))
     

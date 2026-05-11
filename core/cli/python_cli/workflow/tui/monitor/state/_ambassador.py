@@ -1,4 +1,4 @@
-﻿"""Ambassador state renderers."""
+"""Ambassador state renderers."""
 from __future__ import annotations
 
 from core.cli.python_cli.i18n import t

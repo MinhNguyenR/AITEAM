@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import sys
 from typing import Any, Dict, Optional, Sequence, Union
@@ -150,10 +150,13 @@ def ask_choice(
         if raw in allowed:
             return raw
 
-        # Handle slash commands with arguments: e.g. "/export pdf" matches "/export".
+        # Handle commands with arguments: e.g. "/export pdf" matches "/export",
+        # and dashboard paging accepts "n 2" / "p 2".
         first_word = raw.split()[0] if raw.split() else ""
         if first_word.startswith("/") and first_word in allowed:
             return raw  # Return the FULL string so the caller can parse args
+        if first_word in allowed:
+            return raw
 
         if number_map and raw.isdigit():
             mapped = number_map.get(raw)

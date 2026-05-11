@@ -1,4 +1,5 @@
 """Worker Agent - reads context.md + source files, implements code changes, validates."""
+
 from __future__ import annotations
 
 
@@ -12,6 +13,7 @@ from typing import Optional
 
 from agents.base_agent import BaseAgent
 from core.config import config
+from core.domain.prompts import build_worker_system_prompt
 
 
 logger = logging.getLogger(__name__)
@@ -53,18 +55,15 @@ Rules:
 """
 
 
-
-
 class Worker(BaseAgent):
     """Implements code changes from context.md, emits diffs, runs validation commands."""
-
 
     def __init__(self, worker_key: str = "WORKER_A", budget_limit_usd: float = 3.0):
         cfg = config.get_worker(worker_key) or config.get_worker("WORKER_A") or {}
         super().__init__(
             agent_name=worker_key,
             model_name=cfg.get("model", "deepseek/deepseek-v3.2"),
-            system_prompt=WORKER_SYSTEM_PROMPT,
+            system_prompt=build_worker_system_prompt(worker_key, cfg) or WORKER_SYSTEM_PROMPT,
             max_tokens=cfg.get("max_tokens", 4096),
             temperature=cfg.get("temperature", 0.2),
             budget_limit_usd=budget_limit_usd,
@@ -72,9 +71,7 @@ class Worker(BaseAgent):
         )
         self._worker_key = worker_key
 
-
     # Public entry point
-
 
     def execute_task(
         self,
@@ -90,63 +87,78 @@ class Worker(BaseAgent):
         project_root = project_root or str(ctx_path.parent)
         _ws = self._session()
 
-
         # Phase 1: Reading
         self._sub("reading", _ws)
         context_text, tools_text, sources = self._read_inputs(
             ctx_path, tools_path, project_root, _ws, allowed_paths=allowed_paths
         )
         if self._looks_like_restore(context_text, assignment_text):
-            restored, errors = self._restore_from_backup(context_text, project_root, task_uuid, _ws, allowed_paths=allowed_paths)
+            restored, errors = self._restore_from_backup(
+                context_text, project_root, task_uuid, _ws, allowed_paths=allowed_paths
+            )
             if restored or errors:
                 self._clear(_ws)
-                return {"files_written": restored, "commands": [], "commands_run": [], "errors": errors}
-
+                return {
+                    "files_written": restored,
+                    "commands": [],
+                    "commands_run": [],
+                    "errors": errors,
+                }
 
         # Phase 2: Thinking
         self._sub("thinking", _ws)
-        user_prompt = self._build_prompt(context_text, tools_text, sources, assignment_text)
+        user_prompt = self._build_prompt(
+            context_text, tools_text, sources, assignment_text
+        )
         raw = self.call_api_stream(user_prompt)
 
-
         # Phase 2b: optional ask
-        ask_m = re.search(r'\[ASK\](.*?)\[/ASK\]', raw, re.DOTALL)
+        ask_m = re.search(r"\[ASK\](.*?)\[/ASK\]", raw, re.DOTALL)
         if ask_m:
             try:
                 q = json.loads(ask_m.group(1)).get("question", "")
                 if q:
                     self._sub("asking", _ws)
                     answer = self._ask_leader(q)
-                    raw = re.sub(r'\[ASK\].*?\[/ASK\]', '', raw, flags=re.DOTALL).strip()
+                    raw = re.sub(
+                        r"\[ASK\].*?\[/ASK\]", "", raw, flags=re.DOTALL
+                    ).strip()
                     if answer:
                         self._sub("thinking", _ws)
-                        follow = user_prompt + f"\n\nAnswer: {answer}\n\nNow generate all files."
+                        follow = (
+                            user_prompt
+                            + f"\n\nAnswer: {answer}\n\nNow generate all files."
+                        )
                         raw = self.call_api_stream(follow)
             except Exception as e:
                 logger.warning("[%s] ask-block parse failed: %s", self.agent_name, e)
 
-
         # Phase 3: Writing
         self._sub("writing", _ws)
-        files_written, errors = self._write_files(raw, project_root, task_uuid, _ws, allowed_paths=allowed_paths)
+        files_written, errors = self._write_files(
+            raw, project_root, task_uuid, _ws, allowed_paths=allowed_paths
+        )
 
         # Phase 4: Using
         commands = self._parse_commands(raw)
 
-
         self._clear(_ws)
-        return {"files_written": files_written, "commands": commands, "commands_run": [], "errors": errors}
+        return {
+            "files_written": files_written,
+            "commands": commands,
+            "commands_run": [],
+            "errors": errors,
+        }
 
     # Helpers
-
 
     def _session(self):
         try:
             from core.runtime import session as ws
+
             return ws
         except Exception:
             return None
-
 
     def _sub(self, substate: str, _ws, detail: str = "") -> None:
         if _ws:
@@ -155,7 +167,6 @@ class Worker(BaseAgent):
             except Exception:
                 pass
 
-
     def _clear(self, _ws) -> None:
         if _ws:
             try:
@@ -163,17 +174,25 @@ class Worker(BaseAgent):
             except Exception:
                 pass
 
-
     def _read_inputs(
-        self, ctx_path: Path, tools_path, project_root: str, _ws, *, allowed_paths: list[str] | None = None
+        self,
+        ctx_path: Path,
+        tools_path,
+        project_root: str,
+        _ws,
+        *,
+        allowed_paths: list[str] | None = None,
     ) -> tuple[str, str, dict[str, str]]:
-        ctx_text = ctx_path.read_text(encoding="utf-8", errors="replace") if ctx_path.exists() else ""
+        ctx_text = (
+            ctx_path.read_text(encoding="utf-8", errors="replace")
+            if ctx_path.exists()
+            else ""
+        )
         tools_text = ""
         if tools_path:
             tp = Path(tools_path)
             if tp.exists():
                 tools_text = tp.read_text(encoding="utf-8", errors="replace")
-
 
         for fname in (ctx_path.name, Path(tools_path).name if tools_path else None):
             if fname and _ws:
@@ -182,13 +201,12 @@ class Worker(BaseAgent):
                 except Exception:
                     pass
 
-
         sources: dict[str, str] = {}
         root = Path(project_root)
         allowed = self._normalize_allowed_paths(allowed_paths or [])
-        for m in re.finditer(r'`([^`]+\.[a-zA-Z0-9]+)`', ctx_text):
+        for m in re.finditer(r"`([^`]+\.[a-zA-Z0-9]+)`", ctx_text):
             rel = m.group(1).strip()
-            if ('/' in rel or '\\' in rel) and len(rel) < 120:
+            if ("/" in rel or "\\" in rel) and len(rel) < 120:
                 p = root / rel
                 if p.exists() and p.is_file() and p.stat().st_size < 60_000:
                     try:
@@ -202,23 +220,33 @@ class Worker(BaseAgent):
                         pass
         return ctx_text, tools_text, sources
 
-
-    def _build_prompt(self, ctx: str, tools: str, sources: dict[str, str], assignment_text: str = "") -> str:
+    def _build_prompt(
+        self, ctx: str, tools: str, sources: dict[str, str], assignment_text: str = ""
+    ) -> str:
         parts = [f"## Context Plan\n{ctx[:8000]}"]
         if assignment_text:
-            parts.append(f"\n## Your Worker Assignment\n{assignment_text[:3000]}\n\nOnly modify files assigned to you.")
+            parts.append(
+                f"\n## Your Worker Assignment\n{assignment_text[:3000]}\n\nOnly modify files assigned to you."
+            )
         if tools:
             parts.append(f"\n## Tools Available\n{tools[:2000]}")
         if sources:
             parts.append("\n## Current Source Files")
             for path, content in list(sources.items())[:8]:
                 parts.append(f"\n### {path}\n```\n{content[:3000]}\n```")
-        parts.append("\n\nImplement ALL changes in the context plan. Output every file completely.")
+        parts.append(
+            "\n\nImplement ALL changes in the context plan. Output every file completely."
+        )
         return "\n".join(parts)
 
-
     def _write_files(
-        self, raw: str, project_root: str, task_uuid: str, _ws, *, allowed_paths: list[str] | None = None
+        self,
+        raw: str,
+        project_root: str,
+        task_uuid: str,
+        _ws,
+        *,
+        allowed_paths: list[str] | None = None,
     ) -> tuple[list[str], list[str]]:
         from core.sandbox._path_guard import resolve_under_project_root
 
@@ -228,7 +256,7 @@ class Worker(BaseAgent):
         allowed = self._normalize_allowed_paths(allowed_paths or [])
 
         pattern = re.compile(
-            r'--- FILE: (.+?) ---\n(.*?)(?=\n--- FILE: |\n--- COMMANDS ---|--- END FILE ---|$)',
+            r"--- FILE: (.+?) ---\n(.*?)(?=\n--- FILE: |\n--- COMMANDS ---|--- END FILE ---|$)",
             re.DOTALL,
         )
         for m in pattern.finditer(raw):
@@ -246,11 +274,12 @@ class Worker(BaseAgent):
             safe_rel = abs_path.relative_to(root).as_posix()
             if allowed and not self._path_allowed(safe_rel, allowed):
                 errors.append(f"{safe_rel}: not assigned to {self._worker_key}")
-                logger.warning("[%s] rejected unassigned file: %s", self.agent_name, safe_rel)
+                logger.warning(
+                    "[%s] rejected unassigned file: %s", self.agent_name, safe_rel
+                )
                 continue
 
             self._sub("writing", _ws, safe_rel)
-
 
             old_content = ""
             existed = abs_path.exists()
@@ -260,19 +289,22 @@ class Worker(BaseAgent):
                 except OSError:
                     pass
 
-
             self._backup(safe_rel, old_content, task_uuid, str(root))
-
 
             try:
                 abs_path.parent.mkdir(parents=True, exist_ok=True)
                 abs_path.write_text(new_content, encoding="utf-8")
                 files_written.append(safe_rel)
                 status = "UPDATE" if existed else "CREATE"
-                self._emit_update(_ws, safe_rel, old_content, new_content, status=status)
+                self._emit_update(
+                    _ws, safe_rel, old_content, new_content, status=status
+                )
                 try:
                     from utils.logger import artifact_detail, workflow_event
-                    detail = artifact_detail(abs_path, task_id=task_uuid, producer_node=self._worker_key)
+
+                    detail = artifact_detail(
+                        abs_path, task_id=task_uuid, producer_node=self._worker_key
+                    )
                     detail["status"] = status
                     workflow_event("worker", "file_written", detail)
                 except Exception:
@@ -281,13 +313,18 @@ class Worker(BaseAgent):
                 errors.append(f"{rel}: {e}")
                 logger.warning("[%s] write failed %s: %s", self.agent_name, rel, e)
 
-
         return files_written, errors
 
     @staticmethod
     def _looks_like_restore(context_text: str, assignment_text: str = "") -> bool:
         text = f"{context_text}\n{assignment_text}".lower()
-        return bool(re.search(r"\b(restore|rollback|revert|undo)\b|khôi\s*phục|hoàn\s*tác", text, re.IGNORECASE))
+        return bool(
+            re.search(
+                r"\b(restore|rollback|revert|undo)\b|khôi\s*phục|hoàn\s*tác",
+                text,
+                re.IGNORECASE,
+            )
+        )
 
     def _restore_from_backup(
         self,
@@ -305,7 +342,7 @@ class Worker(BaseAgent):
         if not candidates:
             candidates = [
                 m.group(1).strip()
-                for m in re.finditer(r'`([^`]+\.[a-zA-Z0-9]+)`', context_text)
+                for m in re.finditer(r"`([^`]+\.[a-zA-Z0-9]+)`", context_text)
                 if len(m.group(1).strip()) < 160
             ]
         restored: list[str] = []
@@ -313,7 +350,11 @@ class Worker(BaseAgent):
         for rel in dict.fromkeys(candidates):
             try:
                 target = root / rel
-                old = target.read_text(encoding="utf-8", errors="replace") if target.exists() else ""
+                old = (
+                    target.read_text(encoding="utf-8", errors="replace")
+                    if target.exists()
+                    else ""
+                )
                 hits = search_backups(rel, limit=1, project_root=str(root))
                 if not hits:
                     errors.append(f"{rel}: no backup found")
@@ -327,7 +368,6 @@ class Worker(BaseAgent):
                 errors.append(f"{rel}: {exc}")
         return restored, errors
 
-
     @staticmethod
     def _normalize_allowed_paths(paths: list[str]) -> list[str]:
         out: list[str] = []
@@ -337,7 +377,6 @@ class Worker(BaseAgent):
                 out.append(s)
         return out
 
-
     @staticmethod
     def _path_allowed(rel: str, allowed: list[str]) -> bool:
         candidate = rel.replace("\\", "/").strip("/")
@@ -345,34 +384,46 @@ class Worker(BaseAgent):
             item = raw.strip("/")
             if not item:
                 continue
-            if item.endswith("/**") and candidate.startswith(item[:-3].rstrip("/") + "/"):
+            if item.endswith("/**") and candidate.startswith(
+                item[:-3].rstrip("/") + "/"
+            ):
                 return True
-            if item.endswith("/*") and candidate.startswith(item[:-2].rstrip("/") + "/"):
+            if item.endswith("/*") and candidate.startswith(
+                item[:-2].rstrip("/") + "/"
+            ):
                 return True
             if candidate == item or candidate.startswith(item.rstrip("/") + "/"):
                 return True
         return False
 
-
     def _parse_commands(self, raw: str) -> list[str]:
-        m = re.search(r'--- COMMANDS ---(.*?)(?:--- END COMMANDS ---|$)', raw, re.DOTALL)
+        m = re.search(
+            r"--- COMMANDS ---(.*?)(?:--- END COMMANDS ---|$)", raw, re.DOTALL
+        )
         if not m:
             return []
-        return [ln.strip() for ln in m.group(1).split('\n') if ln.strip()][:5]
-
+        return [ln.strip() for ln in m.group(1).split("\n") if ln.strip()][:5]
 
     def _ask_leader(self, question: str) -> str:
         try:
             from agents.support._api_client import make_openai_client
             from core.config.settings import openrouter_base_url
+
             leader_key = "LEADER_MEDIUM"
             try:
                 from core.runtime import session as ws
+
                 snap = ws.get_pipeline_snapshot()
-                leader_key = str(snap.get("brief_selected_leader") or leader_key).upper()
+                leader_key = str(
+                    snap.get("brief_selected_leader") or leader_key
+                ).upper()
             except Exception:
                 pass
-            cfg = config.get_worker(leader_key) or config.get_worker("LEADER_MEDIUM") or {}
+            cfg = (
+                config.get_worker(leader_key)
+                or config.get_worker("LEADER_MEDIUM")
+                or {}
+            )
             model = cfg.get("model", "")
             if not model:
                 return ""
@@ -380,26 +431,33 @@ class Worker(BaseAgent):
             resp = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": "You are a technical lead. Answer briefly (max 150 words)."},
+                    {
+                        "role": "system",
+                        "content": "You are a technical lead. Answer briefly (max 150 words).",
+                    },
                     {"role": "user", "content": question[:600]},
                 ],
-                max_tokens=300, temperature=0.2,
+                max_tokens=300,
+                temperature=0.2,
             )
             return (resp.choices[0].message.content or "").strip()
         except Exception as e:
             logger.warning("[%s] _ask_leader failed: %s", self.agent_name, e)
             return ""
 
-
-    def _backup(self, rel: str, content: str, task_uuid: str, project_root: str = "") -> None:
+    def _backup(
+        self, rel: str, content: str, task_uuid: str, project_root: str = ""
+    ) -> None:
         try:
             from core.storage.code_backup import backup_file
+
             backup_file(rel, content, task_uuid, project_root=project_root)
         except Exception:
             pass
 
-
-    def _emit_update(self, _ws, rel: str, old: str, new: str, *, status: str = "UPDATE") -> None:
+    def _emit_update(
+        self, _ws, rel: str, old: str, new: str, *, status: str = "UPDATE"
+    ) -> None:
         try:
             diff_lines = self._build_diff(old, new)
             added = sum(1 for d in diff_lines if d.get("type") == "add")
@@ -418,33 +476,30 @@ class Worker(BaseAgent):
         except Exception as e:
             logger.debug("[%s] emit_update failed: %s", self.agent_name, e)
 
-
     def _build_diff(self, old: str, new: str) -> list[dict]:
         old_lines = old.splitlines() if old else []
         new_lines = new.splitlines()
-        diff = list(difflib.unified_diff(old_lines, new_lines, lineterm='', n=6))
+        diff = list(difflib.unified_diff(old_lines, new_lines, lineterm="", n=6))
         result: list[dict] = []
         line_num = 1
         for d in diff[2:]:
-            if d.startswith('@@'):
-                m = re.search(r'\+(\d+)', d)
+            if d.startswith("@@"):
+                m = re.search(r"\+(\d+)", d)
                 if m:
                     line_num = int(m.group(1))
                 continue
-            if d.startswith('+'):
+            if d.startswith("+"):
                 result.append({"num": line_num, "type": "add", "text": d[1:]})
                 line_num += 1
-            elif d.startswith('-'):
+            elif d.startswith("-"):
                 result.append({"num": None, "type": "remove", "text": d[1:]})
             else:
                 result.append({"num": line_num, "type": "ctx", "text": d[1:]})
                 line_num += 1
         return result
 
-
     def format_output(self, response: str) -> str:
         return response.strip()
-
 
     def execute(self, task: str, **kwargs) -> str:
         return str(self.execute_task(task))

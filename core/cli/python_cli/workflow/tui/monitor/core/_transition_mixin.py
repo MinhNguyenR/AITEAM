@@ -15,7 +15,7 @@ def _get_done_markup(node: str, role: str, tok: str, st: dict = None) -> str:
         return render_ambassador_done(role, tok)
     elif node == "leader_generate" and st:
         st['is_done'] = True
-        return render_leader_tree("[bold green]✔[/bold green]", role, st, tok=tok)
+        return render_leader_tree("[bold green]OK[/bold green]", role, st, tok=tok)
     elif node == "tool_curator":
         return render_curator_done(role, tok)
     elif node in ("worker", "restore_worker"):
@@ -64,7 +64,7 @@ class _TransitionMixin:
                 if done_markup:
                     self._write(done_markup)
                 else:
-                    self._write(f"[bold green]✔[/bold green] [bold]{role}[/bold]  {done_action}{tok}")
+                    self._write(f"[bold green]OK[/bold green] [bold]{role}[/bold]  {done_action}{tok}")
 
             if prev == "leader_generate":
                 self._leader_substate = "idle"
@@ -136,7 +136,7 @@ class _TransitionMixin:
 
         if active == "human_context_gate" and prev != "human_context_gate":
             self._write(
-                f"[bold green]✔[/bold green] [bold]context.md[/bold]  "
+                f"[bold green]OK[/bold green] [bold]context.md[/bold]  "
                 f"[dim]{t('pipeline.gen_context').lower()} -- {time.strftime('%H:%M:%S')}[/dim]  "
                 f"[dim][bold]/check[/bold] {t('nav.choose').lower()} . [bold]/accept[/bold] . [bold]/delete[/bold][/dim]"
             )

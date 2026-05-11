@@ -1,4 +1,4 @@
-﻿"""Agent skill catalog with auto-discovery for builtin/custom modules."""
+"""Agent skill catalog with auto-discovery for builtin/custom modules."""
 
 from __future__ import annotations
 
