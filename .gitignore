@@ -11,6 +11,7 @@ __pycache__/
 
 # Local runtime data
 .ai-team/
+.aiteamruntime/
 .env
 
 # Artifacts that must not be committed
