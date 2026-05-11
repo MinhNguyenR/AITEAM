@@ -1,4 +1,4 @@
-"""Agent card data model and renderers — shared by chain and list workflow views.
+"""Agent card data model and renderers -- shared by chain and list workflow views.
 
 Designed to scale: add new roles/nodes by adding entries to STATUS_ICON /
 STATUS_BADGE and updating monitor_helpers._steps_for_tier + _display_name.
@@ -99,11 +99,11 @@ def get_agent_cards(snap: dict[str, Any], steps: list[str]) -> list[AgentCard]:
 def render_cards_markup(cards: list[AgentCard], spin_idx: int) -> str:
     """Rich markup for Textual Static or Rich console rendering."""
     if not cards:
-        return "[dim]—[/dim]"
+        return "[dim]--[/dim]"
     sc = SPINNER[spin_idx % len(SPINNER)]
     lines: list[str] = []
     for card in cards:
-        icon, col = STATUS_ICON.get(card.status, ("○", "grey46"))
+        icon, col = STATUS_ICON.get(card.status, ("o", "grey46"))
         glyph = sc if card.status == "running" else icon
         model_s = f"  [dim cyan]{card.model_name}[/dim cyan]" if card.model_name else ""
         lines.append(f"[{col}]{glyph}[/{col}] [bold]{card.display_name}[/bold]{model_s}")

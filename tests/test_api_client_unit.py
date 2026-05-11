@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agents._api_client import APIClient
-from agents._budget_manager import BudgetManager
+from agents.support._api_client import APIClient
+from agents.support._budget_manager import BudgetManager
 from agents.base_agent import BudgetExceeded
 
 
@@ -118,8 +118,8 @@ class TestCallApi:
     def test_returns_content_on_success(self):
         c = _make_client()
         resp = _make_resp("Great answer!", finish_reason="stop")
-        with patch("agents._api_client.chat_completions_create", return_value=resp):
-            with patch("agents._api_client.ensure_dashboard_budget_available"):
+        with patch("agents.support._api_client.chat_completions_create", return_value=resp):
+            with patch("agents.support._api_client.ensure_dashboard_budget_available"):
                 with patch.object(c, "_compute_call_cost", return_value=0.001):
                     result = c.call_api(
                         "test prompt",
@@ -143,8 +143,8 @@ class TestCallApi:
     def test_history_updated_on_success(self):
         c = _make_client()
         resp = _make_resp("answer", finish_reason="stop")
-        with patch("agents._api_client.chat_completions_create", return_value=resp):
-            with patch("agents._api_client.ensure_dashboard_budget_available"):
+        with patch("agents.support._api_client.chat_completions_create", return_value=resp):
+            with patch("agents.support._api_client.ensure_dashboard_budget_available"):
                 with patch.object(c, "_compute_call_cost", return_value=0.0):
                     c.call_api(
                         "user prompt", model="m", max_tokens=512,
@@ -156,8 +156,8 @@ class TestCallApi:
     def test_budget_cost_incremented(self):
         c = _make_client()
         resp = _make_resp("ok", finish_reason="stop")
-        with patch("agents._api_client.chat_completions_create", return_value=resp):
-            with patch("agents._api_client.ensure_dashboard_budget_available"):
+        with patch("agents.support._api_client.chat_completions_create", return_value=resp):
+            with patch("agents.support._api_client.ensure_dashboard_budget_available"):
                 with patch.object(c, "_compute_call_cost", return_value=0.005):
                     c.call_api(
                         "x", model="m", max_tokens=512, temperature=0.5,
@@ -183,13 +183,13 @@ class TestAggregateStream:
             self._make_chunk("lo"),
             self._make_chunk("!"),
         ]
-        content, _, _ = c._aggregate_stream(iter(chunks))
+        content, *_ = c._aggregate_stream(iter(chunks))
         assert content == "hello!"
 
     def test_skips_none_delta(self):
         c = _make_client()
         chunks = [self._make_chunk(None), self._make_chunk("hi")]
-        content, _, _ = c._aggregate_stream(iter(chunks))
+        content, *_ = c._aggregate_stream(iter(chunks))
         assert content == "hi"
 
     def test_stream_callback_called(self):
@@ -212,7 +212,7 @@ class TestAggregateStream:
 
     def test_empty_stream_returns_empty(self):
         c = _make_client()
-        content, p, comp = c._aggregate_stream(iter([]))
+        content, p, comp, *_ = c._aggregate_stream(iter([]))
         assert content == ""
         assert p == 0
         assert comp == 0

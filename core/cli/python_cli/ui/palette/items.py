@@ -19,7 +19,7 @@ _GLOBAL_SLASH = frozenset({"/back", "/exit"})
 _SHUTDOWN = "/shutdown"
 
 # Commands that go in the "Tasks" group for the main menu
-_MAIN_TASKS = frozenset({"/start", "/check", "/workflow"})
+_MAIN_TASKS = frozenset({"/chat", "/workflow", "/explainer @codebase", "/explainer @file"})
 # Commands that go in the "Info & utilities" group for the main menu
 _MAIN_INFO = frozenset({"/status", "/info", "/dashboard", "/settings", "/help"})
 
@@ -41,6 +41,12 @@ def _split_registry_into_sections(
     if context == "monitor":
         return get_popup_sections()
     raw = COMMAND_REGISTRY.get(context, [])
+    if not raw:
+        raw = [
+            ("/back", "cmd.back"),
+            ("/exit", "cmd.exit"),
+            ("/shutdown", "cmd.shutdown"),
+        ]
     rows = [(c, t(dk)) for c, dk in raw]
 
     if context == "main":
@@ -86,8 +92,8 @@ def build_popup_items(
             if name == "check":
                 cmds.extend(
                     [
-                        ("/accept", t("context.accept_desc").split(" — ")[0]),
-                        ("/delete", t("context.delete_desc").split(" — ")[0]),
+                        ("/accept", t("context.accept_desc").split(" -- ")[0]),
+                        ("/delete", t("context.delete_desc").split(" -- ")[0]),
                     ]
                 )
 
@@ -104,7 +110,7 @@ def build_popup_items(
         if matched:
             if showing_all:
                 if name in _SECTION_HEADER_KEYS:
-                    header = t(f"menu.{name}.desc").split(" — ")[0].split(" | ")[0]
+                    header = t(f"menu.{name}.desc").split(" -- ")[0].split(" | ")[0]
                 else:
                     header = str(name)
                 result.append(("__sep__", header))
@@ -142,7 +148,14 @@ def render_popup_text(
             if not first:
                 result.append(("", "\n"))
             padded = cmd.ljust(pad)
-            if q_len <= len(cmd):
+            if cmd.startswith("@") and "/" in cmd:
+                path = cmd[1:]
+                slash = path.rfind("/")
+                head_len = slash + 2 if slash >= 0 else 1
+                result.append((PALETTE_CMD_TAIL, padded[:head_len]))
+                result.append((PALETTE_CMD_BOLD, padded[head_len:len(cmd)]))
+                result.append((PALETTE_CMD_TAIL, padded[len(cmd):]))
+            elif q_len <= len(cmd):
                 result.append((PALETTE_CMD_BOLD, padded[:q_len]))
                 result.append((PALETTE_CMD_TAIL, padded[q_len:]))
             else:
@@ -150,8 +163,8 @@ def render_popup_text(
                 result.append((PALETTE_CMD_TAIL, " " * (pad - len(cmd))))
             if desc:
                 cap = max(8, POPUP_WIDTH - pad - 2)
-                raw = desc.split(" | ")[0].split(" — ")[0].strip()
-                short_desc = raw if len(raw) <= cap else raw[: cap - 1] + "…"
+                raw = desc.split(" | ")[0].split(" -- ")[0].strip()
+                short_desc = raw if len(raw) <= cap else raw[: cap - 1] + "..."
                 result.append((f"fg:{PALETTE_DESC}", short_desc))
         first = False
 

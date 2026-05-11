@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Callable, List, Tuple
 
@@ -57,13 +57,19 @@ def make_command_palette_float(
     def _body_text():
         return render_popup_text(get_query(), get_items())
 
-    body = Window(
+    from prompt_toolkit.layout.dimension import D
+    from prompt_toolkit.layout.margins import ScrollbarMargin
+    from prompt_toolkit.layout.containers import VSplit
+
+    body_win = Window(
         content=FormattedTextControl(_body_text),
         style=ptk_popup_window_style(),
         dont_extend_height=True,
+        height=D(max=15),
+        right_margins=[ScrollbarMargin(display_arrows=True)],
     )
     framed = frame_cls(
-        body=body,
+        body=body_win,
         title=t("ui.commands"),
         style=ptk_frame_style(),
         width=width,

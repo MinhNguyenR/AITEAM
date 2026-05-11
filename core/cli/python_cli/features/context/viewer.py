@@ -23,6 +23,7 @@ from core.cli.python_cli.ui.ui import PASTEL_BLUE, PASTEL_CYAN, clear_screen, co
 from core.cli.python_cli.i18n import t
 from core.cli.python_cli.shell.choice_lists import context_viewer_choices
 from core.domain.delta_brief import is_no_context
+from core.cli.python_cli.shell.safe_read import safe_read_text
 
 
 def show_context(project_root: str, start_runner: Callable[[str], None]) -> None:
@@ -68,7 +69,7 @@ def show_context(project_root: str, start_runner: Callable[[str], None]) -> None
             )
         )
         console.print()
-    content = ctx.read_text(encoding="utf-8")
+    content = safe_read_text(ctx)
     lines = content.splitlines()
     console.print(f"[{PASTEL_CYAN}]{ctx}[/{PASTEL_CYAN}]  [dim]{len(lines)} {t('unit.lines')}[/dim]")
     console.print()
@@ -79,10 +80,10 @@ def show_context(project_root: str, start_runner: Callable[[str], None]) -> None
     console.print()
     while True:
         choice = ask_choice(t("ui.choice"), ["/back", "/exit", "/run", "/edit", "/delete", "/regenerate"], default="/back", context="context_viewer")
-        if choice in ("exit", "/exit"):
+        if choice == "/exit":
             clear_screen()
             raise NavToMain
-        if choice in ("back", "/back"):
+        if choice == "/back":
             if ws.is_paused_for_review():
                 ws.set_should_finalize(False)
                 ws.set_context_accept_status("deferred")
@@ -95,7 +96,7 @@ def show_context(project_root: str, start_runner: Callable[[str], None]) -> None
             run_editor_on_file(ctx)
             clear_screen()
             print_header(t("context.viewer_header"))
-            content = ctx.read_text(encoding="utf-8")
+            content = safe_read_text(ctx)
             lines = content.splitlines()
             display = "\n".join(lines[:150])
             if len(lines) > 150:
@@ -140,12 +141,13 @@ def show_context(project_root: str, start_runner: Callable[[str], None]) -> None
             if ws.is_paused_for_review():
                 ws.set_paused_for_review(False)
             from core.cli.python_cli.ui.palette import ask_with_palette
-            prompt = ask_with_palette(f"{t('context.new_task_hint')} ", context="context_viewer")
+            prompt = ask_with_palette("> ", context="context_viewer")
+
             pt = (prompt or "").strip()
             pl = pt.lower()
-            if pl in ("/exit", "exit"):
+            if pl == "/exit":
                 raise NavToMain
-            if pl in ("/back", "back"):
+            if pl == "/back":
                 clear_screen()
                 return
             if pt:

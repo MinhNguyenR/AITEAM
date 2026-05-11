@@ -1,51 +1,99 @@
-"""Ambassador state renderers — running and done."""
+﻿"""Ambassador state renderers."""
 from __future__ import annotations
+
 from core.cli.python_cli.i18n import t
+
+_A_ORDER = ("reading", "thinking", "writing")
+_BRANCH = "\u251c\u2500"
+_LAST = "\u2514\u2500"
+_DOT = "\u25cf"
+_CHECK = "\u2713"
+
+_LABELS = {
+    "reading": lambda: t("unit.reading"),
+    "thinking": lambda: t("unit.thinking"),
+    "writing": lambda: t("unit.writing"),
+}
 
 
 def render_running(
-    sc: str, role: str, buf: str, pt: int, ct: int, attempt: int, elapsed: int = 0,
-    reasoning_acc: str = '', reasoning_active: bool = False,
+    sc: str,
+    role: str,
+    buf: str,
+    pt: int,
+    ct: int,
+    attempt: int,
+    elapsed: int = 0,
+    reasoning_acc: str = "",
+    reasoning_active: bool = False,
+    substate: str = "",
+    detail: str = "",
 ) -> str:
-    meta: list[str] = []
-    if elapsed > 0:
-        meta.append(f"{elapsed}s")
-    if pt or ct:
-        meta.append(f"{t('unit.token_in')}: {pt:,} {t('unit.token_out')}: {ct:,}")
-    if attempt > 1:
-        meta.append(f"{t('unit.attempt')} {attempt}")
-    meta_s = f"  [dim]({', '.join(meta)})[/dim]" if meta else ""
+    del reasoning_active
+    if not substate or substate not in _A_ORDER:
+        substate = "thinking"
+
+    try:
+        cur_idx = _A_ORDER.index(substate)
+    except ValueError:
+        cur_idx = 1
 
     parts = [f"[#888888]{sc}[/#888888] [bold]{role}[/bold]"]
+    spin = f" [bold blue]{sc}[/bold blue]"
 
-    has_reasoning = bool(reasoning_acc)
-    if has_reasoning:
-        # Show reasoning branch while it's active; then generation branch after
-        parts.append(f"[dim]├─[/dim] {t('pipeline.generating')}{meta_s}")
-        dot = f" [bold blue]{sc}[/bold blue]" if reasoning_active else " [green]✓[/green]"
-        r_lines = [ln for ln in reasoning_acc.split("\n") if ln.strip()]
-        parts.append(f"[dim]└─[/dim] {t('unit.reasoning')}{dot}")
-        for i, ln in enumerate(r_lines[-4:]):
-            pfx = "[dim]  └─[/dim]" if i == 0 else "[dim]    [/dim]"
-            safe = ln.replace("[", "\\[")
-            parts.append(f"{pfx} [dim]{safe[:94]}[/dim]")
-    else:
-        parts.append(f"[dim]└─[/dim] {t('pipeline.generating')}{meta_s}")
-        buf_lines = [ln for ln in buf.split("\n") if ln.strip()] if buf else []
-        for i, ln in enumerate(buf_lines[-6:]):
-            pfx = "[dim]  └─[/dim]" if i == 0 else "[dim]    [/dim]"
-            safe = ln.replace("[", "\\[")
-            parts.append(f"{pfx} [dim]{safe[:98]}[/dim]")
+    for i, s in enumerate(_A_ORDER):
+        label = _LABELS[s]()
+        conn = f"[dim]{_LAST}[/dim]" if i == cur_idx else f"[dim]{_BRANCH}[/dim]"
+
+        if i < cur_idx:
+            parts.append(f"{conn} {label} [green]{_CHECK}[/green]")
+            continue
+        if i > cur_idx:
+            continue
+
+        meta_bits: list[str] = []
+        if elapsed > 0:
+            meta_bits.append(f"{elapsed}s")
+        if s == "thinking" and (pt or ct):
+            meta_bits.append(f"{t('unit.token_in')}: {pt:,} {t('unit.token_out')}: {ct:,}")
+        if attempt > 1:
+            meta_bits.append(f"{t('unit.attempt')} {attempt}")
+        meta_s = f"  [dim]({', '.join(meta_bits)})[/dim]" if meta_bits else ""
+        parts.append(f"{conn} {label}{spin}{meta_s}")
+
+        if s == "reading":
+            det = detail or "User input"
+            safe = det.replace("[", r"\[")
+            parts.append(f"  [dim]{_LAST}[/dim] [dim]{safe[:94]}[/dim]")
+        elif s == "thinking":
+            show = reasoning_acc or buf
+            lines = [
+                ln for ln in show.split("\n")
+                if ln.strip() and "[CLARIFICATION]" not in ln and "[/CLARIFICATION]" not in ln
+            ][-12:]
+            for j, ln in enumerate(lines):
+                pfx = f"[dim]  {_LAST}[/dim]" if j == 0 else "[dim]    [/dim]"
+                safe = ln.replace("[", r"\[")
+                parts.append(f"{pfx} [dim]{safe[:98]}[/dim]")
+        elif s == "writing":
+            det = detail or "state.json"
+            safe = det.replace("[", r"\[")
+            parts.append(f"  [dim]{_LAST}[/dim] [dim]{safe[:94]}[/dim]")
+            lines = [ln for ln in buf.split("\n") if ln.strip()][-6:]
+            for j, ln in enumerate(lines):
+                pfx = f"[dim]    {_LAST}[/dim]" if j == 0 else "[dim]      [/dim]"
+                safe_ln = ln.replace("[", r"\[")
+                parts.append(f"{pfx} [dim]{safe_ln[:94]}[/dim]")
+
     return "\n".join(parts)
 
 
 def render_done(role: str, tok: str) -> str:
-    """Green-dot completed display — stays visible in live section while leader runs."""
-    # format of tok is expected to be  [dim](in:X out:Y)[/dim]
-    # we replace in: out: with localized token in: token out:
+    """All branches shown with checks, no detail sub-branches."""
     if "in:" in tok:
         tok = tok.replace("in:", f"{t('unit.token_in')}:").replace("out:", f"{t('unit.token_out')}:")
-    return (
-        f"[bold green]●[/bold green] [bold]{role}[/bold]\n"
-        f"[dim]└─[/dim] {t('pipeline.generating')} ✓{tok}"
-    )
+    lines = [f"[bold green]{_DOT}[/bold green] [bold]{role}[/bold]{tok}"]
+    for i, s in enumerate(_A_ORDER):
+        conn = _LAST if i == len(_A_ORDER) - 1 else _BRANCH
+        lines.append(f"[dim]{conn}[/dim] {_LABELS[s]()} [green]{_CHECK}[/green]")
+    return "\n".join(lines)

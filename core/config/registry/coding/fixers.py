@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict
 
@@ -6,7 +6,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
     "FIX_WORKER_A": {
         "model": "xiaomi/mimo-v2-flash",
         "role": "Bug Fixer A",
-        "reason": "Sửa bug nhanh, tập trung vào lỗi cú pháp, runtime error và logic đơn giản.",
+        "reason": "Sửa lỗi mã nguồn và xử lý các vấn đề logic phát sinh.",
         "tier": "FIX",
         "priority": 3,
         "max_tokens": 4096,
@@ -17,7 +17,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
     "FIX_WORKER_B": {
         "model": "deepseek/deepseek-v3.2",
         "role": "Bug Fixer B",
-        "reason": "Sửa bug trung bình: logic sai, race condition và lỗi tích hợp giữa các module.",
+        "reason": "Sửa lỗi mã nguồn và xử lý các vấn đề logic phát sinh.",
         "tier": "FIX",
         "priority": 4,
         "max_tokens": 4096,
@@ -28,7 +28,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
     "FIX_WORKER_C": {
         "model": "deepseek/deepseek-v4-flash",
         "role": "Bug Fixer C",
-        "reason": "Sửa bug phức tạp: memory leak, concurrency và lỗi hiệu năng hệ thống.",
+        "reason": "Sửa lỗi mã nguồn và xử lý các vấn đề logic phát sinh.",
         "tier": "FIX",
         "priority": 4,
         "max_tokens": 4096,
@@ -38,24 +38,35 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
     },
     "ADVANCED_FIX_WORKER_A": {
         "model": "xiaomi/mimo-v2.5-pro",
-        "role": "Deep Fixer A",
-        "reason": "Debug nâng cao: phân tích stack trace, profiling và điều tra lỗi khó tái hiện.",
+        "role": "Production Fixer",
+        "reason": "Khắc phục các sự cố kỹ thuật phức tạp và tối ưu hệ thống.",
         "tier": "FIX",
         "priority": 4,
-        "max_tokens": 4096,
+        "max_tokens": 8192,
         "temperature": 0.1,
         "top_p": 1.0,
-        "reasoning": {"effort": "medium", "exclude": False},
+        "reasoning": {"effort": "high", "enabled": True, "exclude": False},
     },
     "ADVANCED_FIX_WORKER_B": {
-        "model": "moonshotai/kimi-k2.6",
-        "role": "Deep Fixer B",
-        "reason": "Debug chuyên sâu với reasoning dài, xử lý lỗi kiến trúc và tối ưu hóa hệ thống.",
+        "model": "deepseek/deepseek-v4-pro",
+        "role": "Architecture Fixer",
+        "reason": "Khắc phục các sự cố kỹ thuật phức tạp và tối ưu hệ thống.",
         "tier": "FIX",
         "priority": 4,
-        "max_tokens": 4096,
+        "max_tokens": 16384,
         "temperature": 0.1,
         "top_p": 1.0,
-        "reasoning": {"effort": "medium", "exclude": False},
+        "reasoning": {"effort": "xhigh", "enabled": True, "exclude": False},
+    },
+    "ADVANCED_FIX_WORKER_C": {
+        "model": "x-ai/grok-4.3",
+        "role": "The Speed Sniper",
+        "reason": "Khắc phục các sự cố kỹ thuật phức tạp và tối ưu hệ thống.",
+        "tier": "FIX",
+        "priority": 4,
+        "max_tokens": 16384,
+        "temperature": 0.1,
+        "top_p": 1.0,
+        "reasoning": {"effort": "xhigh", "enabled": True, "exclude": False},
     },
 }

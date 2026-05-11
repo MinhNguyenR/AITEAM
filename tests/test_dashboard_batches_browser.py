@@ -28,7 +28,7 @@ def test_batches_browser_advances_pages(monkeypatch):
     )
     monkeypatch.setattr(total_mod.dashboard_data, "read_usage_log", lambda last_n=8000: [])
     monkeypatch.setattr(total_mod.dashboard_data, "aggregate_rows_by_role_model", lambda rows: [])
-    responses = iter(["n", "back"])
+    responses = iter(["/next", "/back"])
     monkeypatch.setattr(total_mod, "ask_choice", lambda *args, **kwargs: next(responses))
     total_mod.show_total_browser(state)
     assert state.batch_page == 1

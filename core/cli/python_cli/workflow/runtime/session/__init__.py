@@ -1,4 +1,4 @@
-"""Shared workflow session — re-export facade (backward compat)."""
+"""Shared workflow session -- re-export facade (backward compat)."""
 import time  # keep accessible as ws.time for monkeypatching in tests
 from ._session_core import (
     SESSION_FILE, WORKFLOW_PHASES, CONTEXT_ACCEPT_STATUSES,
@@ -53,11 +53,26 @@ from .session_pipeline_state import (
     # Real-time token tracking
     increment_stream_char_count, get_stream_char_count,
     set_stream_prompt_tokens, get_stream_prompt_tokens,
+    set_stream_completion_tokens, get_stream_completion_tokens,
     reset_stream_token_counters,
     # Leader action tracker
     set_leader_action, get_leader_action, clear_leader_action,
     set_curator_substate, get_curator_substate, clear_curator_substate,
+    set_ambassador_substate, get_ambassador_substate, clear_ambassador_substate,
+    set_leader_substate, get_leader_substate, clear_leader_substate,
     set_pipeline_redirect, get_pipeline_redirect,
+    # Worker
+    set_worker_substate, get_worker_substate, clear_worker_substate,
+    push_worker_reading_file, get_worker_reading_files, clear_worker_reading_files,
+    set_worker_using_command, get_worker_using_command,
+    push_worker_command_result, get_worker_command_results, clear_worker_state,
+    # Secretary
+    set_secretary_substate, get_secretary_substate, clear_secretary_substate,
+    push_secretary_command_result, get_secretary_command_results, clear_secretary_commands,
+    # Explainer
+    set_explainer_substate, get_explainer_substate, clear_explainer_substate,
+    # Update diffs
+    push_update_diff, get_update_diffs, pop_update_diffs, clear_update_diffs,
 )
 
 __all__ = [
@@ -102,8 +117,23 @@ __all__ = [
     "get_pipeline_snapshot",
     "increment_stream_char_count", "get_stream_char_count",
     "set_stream_prompt_tokens", "get_stream_prompt_tokens",
+    "set_stream_completion_tokens", "get_stream_completion_tokens",
     "reset_stream_token_counters",
     "set_leader_action", "get_leader_action", "clear_leader_action",
     "set_curator_substate", "get_curator_substate", "clear_curator_substate",
+    "set_ambassador_substate", "get_ambassador_substate", "clear_ambassador_substate",
+    "set_leader_substate", "get_leader_substate", "clear_leader_substate",
     "set_pipeline_redirect", "get_pipeline_redirect",
+    # Worker
+    "set_worker_substate", "get_worker_substate", "clear_worker_substate",
+    "push_worker_reading_file", "get_worker_reading_files", "clear_worker_reading_files",
+    "set_worker_using_command", "get_worker_using_command",
+    "push_worker_command_result", "get_worker_command_results", "clear_worker_state",
+    # Secretary
+    "set_secretary_substate", "get_secretary_substate", "clear_secretary_substate",
+    "push_secretary_command_result", "get_secretary_command_results", "clear_secretary_commands",
+    # Explainer
+    "set_explainer_substate", "get_explainer_substate", "clear_explainer_substate",
+    # Update diffs
+    "push_update_diff", "get_update_diffs", "pop_update_diffs", "clear_update_diffs",
 ]

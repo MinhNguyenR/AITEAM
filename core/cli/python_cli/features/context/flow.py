@@ -1,4 +1,4 @@
-"""context_flow — facade re-export (implementation in core.cli.python_cli.features.context)."""
+"""context_flow -- facade re-export (implementation in core.cli.python_cli.features.context)."""
 
 from __future__ import annotations
 

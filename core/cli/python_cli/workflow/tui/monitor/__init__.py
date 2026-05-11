@@ -1,4 +1,4 @@
-"""Workflow monitor TUI — public API."""
+"""Workflow monitor TUI -- public API."""
 from .app import WorkflowListApp
 
 

@@ -10,7 +10,7 @@ from core.cli.python_cli.i18n import t
 def handle_ask_inline(app, question: str) -> None:
     app._write("")
     app._write(f"[bold #7aa2f7]{t('ui.user')}[/bold #7aa2f7]")
-    app._write("[dim]────────────────[/dim]")
+    app._write("[dim]----------------[/dim]")
     words, curr, qchunks = question.split(), "", []
     for w in words:
         if len(curr) + len(w) + 1 > 100:
@@ -49,7 +49,7 @@ def handle_ask_inline(app, question: str) -> None:
                 app._set_live("")
                 app._write("")
                 app._write(f"[bold #9ece6a]{t('ui.assistant')}[/bold #9ece6a]")
-                app._write("[dim]────────────────[/dim]")
+                app._write("[dim]----------------[/dim]")
                 first = True
                 for chunk in chunks:
                     if not chunk:

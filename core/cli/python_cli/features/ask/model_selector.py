@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agents._api_client import make_openai_client
+from agents.support._api_client import make_openai_client
 
 from core.app_state import log_system_action
 from core.config import config

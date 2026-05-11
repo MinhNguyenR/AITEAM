@@ -1,9 +1,12 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
+import shutil
+from io import StringIO
 from pathlib import Path
 from typing import Optional
 
 from rich.box import ROUNDED, SIMPLE
+from rich.console import Console as RichConsole
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.style import Style
@@ -31,9 +34,10 @@ DEFAULT_HISTORY_DAYS = 1
 _BORDER = PASTEL_BLUE
 
 
-def _panel(title: str, body, *, border: str = _BORDER) -> None:
-    from core.cli.python_cli.ui.ui import console
-    console.print(Panel(body, title=f"[bold]{title}[/bold]", border_style=border, box=ROUNDED))
+def _panel(title: str, body, *, border: str = _BORDER, out=None) -> None:
+    from core.cli.python_cli.ui.ui import console as _default_console
+    sink = out or _default_console
+    sink.print(Panel(body, title=f"[bold]{title}[/bold]", border_style=border, box=ROUNDED))
 
 
 def _input(prompt: str, *, default: str = "") -> str:
@@ -76,40 +80,32 @@ def _budget_text(settings: dict) -> str:
     ])
 
 
-def _show_home(settings: dict, rs: DashboardRangeState) -> None:
-    from core.cli.python_cli.ui.ui import console
-
-    clear_screen()
-    _refresh_range(rs)
+def _build_home_on(settings: dict, rs: DashboardRangeState, out: RichConsole) -> None:
+    """Render the full dashboard home view onto *out* (no side-effects on real terminal)."""
     summary = tracker.get_dashboard_summary(
         daily_budget_usd   = settings.get("daily_budget_usd"),
         monthly_budget_usd = settings.get("monthly_budget_usd"),
         yearly_budget_usd  = settings.get("yearly_budget_usd"),
     )
-    header(t("menu.dashboard.desc"))
-    render_wallet_usage(summary)
+    header(t("menu.dashboard.desc"), out=out)
+    render_wallet_usage(summary, out=out)
 
-    # Budget status
-    _panel(t("dash.budget_title"), _budget_text(settings), border=PASTEL_BLUE)
+    _panel(t("dash.budget_title"), _budget_text(settings), border=PASTEL_BLUE, out=out)
 
-    # Recent turns preview — show 3 globally latest (not range-filtered)
     batches = tracker.summarize_tokens_by_cli_batches(rs.since, rs.until)
     try:
-        # Get all-time batches for "latest 3" regardless of current date range
-        from datetime import datetime as _dt, timedelta as _td
-        _far_past  = _dt(2000, 1, 1)
-        _far_future = _dt(2100, 1, 1)
-        all_batches = tracker.summarize_tokens_by_cli_batches(_far_past, _far_future)
+        from datetime import datetime as _dt
+        all_batches = tracker.summarize_tokens_by_cli_batches(_dt(2000, 1, 1), _dt(2100, 1, 1))
         preview = all_batches[-3:] if len(all_batches) > 3 else all_batches
     except Exception:
         preview = batches[-3:] if len(batches) > 3 else batches
     if preview:
         tbl = Table(box=SIMPLE, show_lines=False, padding=(0, 1))
-        tbl.add_column(t("dash.turn"),      style=Style(color=PASTEL_CYAN),   justify="right", width=6)
-        tbl.add_column(t("dash.time"),      style=Style(color=SOFT_WHITE),    width=20)
-        tbl.add_column(t("dash.requests"),  justify="right", width=12)
-        tbl.add_column(t("dash.tokens"),    justify="right", width=12)
-        tbl.add_column(t("dash.spend"),     justify="right", style="yellow",  width=12)
+        tbl.add_column(t("dash.turn"),     style=Style(color=PASTEL_CYAN),  justify="right", width=6)
+        tbl.add_column(t("dash.time"),     style=Style(color=SOFT_WHITE),   width=20)
+        tbl.add_column(t("dash.requests"), justify="right", width=12)
+        tbl.add_column(t("dash.tokens"),   justify="right", width=12)
+        tbl.add_column(t("dash.spend"),    justify="right", style="yellow", width=12)
         for b in preview:
             reqs = sum(int(v.get("requests", 0)) for v in (b.get("by_role") or {}).values())
             tbl.add_row(
@@ -119,7 +115,20 @@ def _show_home(settings: dict, rs: DashboardRangeState) -> None:
                 f"{int(b.get('totals', {}).get('total_tokens', 0)):,}",
                 f"${float(b.get('cost_usd', 0.0)):.5f}",
             )
-        _panel(t("dash.recent_title").format(n=len(batches), label=rs.label), tbl, border=PASTEL_LAVENDER)
+        _panel(t("dash.recent_title").format(n=len(batches), label=rs.label), tbl,
+               border=PASTEL_LAVENDER, out=out)
+
+
+def _capture_home_ansi(settings: dict, rs: DashboardRangeState) -> str:
+    """Render dashboard home to an ANSI string without touching the real terminal."""
+    width = shutil.get_terminal_size((120, 30)).columns
+    sio = StringIO()
+    cap = RichConsole(
+        file=sio, force_terminal=True, width=width,
+        no_color=False, highlight=False, markup=True,
+    )
+    _build_home_on(settings, rs, cap)
+    return sio.getvalue()
 
 
 
@@ -127,16 +136,17 @@ def _loop(settings: dict, rs: DashboardRangeState) -> None:
     from core.cli.python_cli.ui.ui import console
 
     while True:
-        _show_home(settings, rs)
+        _refresh_range(rs)
         choice = ask_choice(
             f"[{PASTEL_CYAN}]>[/{PASTEL_CYAN}]",
             ["/back", "/exit", "/history", "/total", "/budget"],
             default="/history",
-            context="dashboard_home"
+            context="dashboard_home",
+            header_ansi=_capture_home_ansi(settings, rs),
         )
-        if choice in (GLOBAL_EXIT, "/exit"):
+        if choice == "/exit":
             raise NavToMain
-        if choice in (GLOBAL_BACK, "/back"):
+        if choice == "/back":
             return
         if choice == "/history":
             try:
@@ -150,8 +160,6 @@ def _loop(settings: dict, rs: DashboardRangeState) -> None:
             _persist_rs(rs)
             continue
         if choice == "/budget":
-            clear_screen()
-            header(t("dash.budget_title").upper())
             show_budget_menu(settings)
             _persist_rs(rs)
             continue

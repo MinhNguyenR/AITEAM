@@ -161,7 +161,7 @@ def export_pdf(project_root: Path, range_state: DashboardRangeState) -> Path | N
         _build_pdf_document(pdf, report, regular_path, bold_path, font_source)
         pdf_out = project_root / f"ai_team_usage_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         pdf.output(str(pdf_out))
-        console.print(f"[green]PDF → {pdf_out}[/green]")
+        console.print(f"[green]PDF -> {pdf_out}[/green]")
         console.print(f"[cyan]Using font: {regular_path.name} ({font_source})[/cyan]")
         return pdf_out
     except Exception as e:  # noqa: BLE001

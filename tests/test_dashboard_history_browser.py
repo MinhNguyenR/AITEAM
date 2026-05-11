@@ -21,7 +21,7 @@ def test_history_browser_advances_pages(monkeypatch):
         "summarize_tokens_by_cli_batches",
         lambda s, u: [{"batch_idx": 1, "timestamp": "2026-04-16T12:00:00", "mode": "ask", "totals": {}, "by_role": {}}],
     )
-    responses = iter(["n", "back"])
-    monkeypatch.setattr(history_mod.Prompt, "ask", lambda *args, **kwargs: next(responses))
+    responses = iter(["/next", "/back"])
+    monkeypatch.setattr(history_mod, "ask_choice", lambda *args, **kwargs: next(responses))
     history_mod.show_history_browser(state)
     assert state.log_page == 1

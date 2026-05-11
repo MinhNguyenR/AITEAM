@@ -13,7 +13,7 @@ from rich.text import Text
 
 console = Console()
 
-# ── Colour palette ────────────────────────────────────────────────────────────
+# ---------- Colour palette ------------------------------------------------------------
 PASTEL_BLUE    = "#6495ED"   # cornflower blue  (primary)
 PASTEL_CYAN    = "#7FFFD4"   # aquamarine       (accent)
 PASTEL_LAVENDER= "#C8C8FF"   # soft lavender    (secondary)
@@ -22,8 +22,8 @@ BRIGHT_BLUE    = "#4169E1"   # royal blue       (headers)
 SOFT_WHITE     = "#E8E8F0"   # off-white
 DIM_BLUE       = "#3A3A6E"   # dark blue dim
 
-# ── ASCII logo ────────────────────────────────────────────────────────────────
-# figlet "big" font — AI  TEAM
+# ---------- ASCII logo ----------------------------------------------------------------
+# figlet "big" font - AI  TEAM
 _LOGO_LINES = (
     r"    _    ___         _____ _____    _    __  __ ",
     r"   / \  |_ _|       |_   _| ____|  / \  |  \/  |",
@@ -110,12 +110,13 @@ def print_divider(label: str = ""):
         console.print(Rule(style=PASTEL_BLUE))
 
 
-def print_header(title: str, subtitle: str = ""):
+def print_header(title: str, subtitle: str = "", *, out: Console | None = None) -> None:
+    sink = out or console
     body = Text(title, style=Style(color=BRIGHT_BLUE, bold=True), justify="center")
     if subtitle:
         body.append(f"\n{subtitle}", style=Style(color=PASTEL_CYAN))
-    console.print(Panel(body, box=ROUNDED, border_style=PASTEL_BLUE, padding=(0, 4)))
-    console.print()
+    sink.print(Panel(body, box=ROUNDED, border_style=PASTEL_BLUE, padding=(0, 4)))
+    sink.print()
 
 
 __all__ = [

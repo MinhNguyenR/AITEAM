@@ -1,4 +1,4 @@
-"""Mixin: _write, _set_live, _get_all_lines, _replay_history."""
+﻿"""Mixin: _write, _set_live, _get_all_lines, _replay_history."""
 from __future__ import annotations
 
 from ._utils import _r2a
@@ -19,12 +19,28 @@ class _ContentMixin:
 
     def _set_live(self, markup: str) -> None:
         """Set live step content. Each markup line is converted separately so ANSI codes
-        don't bleed across lines when the string is later split by newline."""
+        don't bleed across lines when the string is later split by newline.
+
+        Appends \\x1b[K (erase-to-EOL) on every line so old longer lines are cleared.
+        When content shrinks, pads with blank lines to overwrite stale content below.
+        """
+        prev_count = getattr(self, "_prev_live_line_count", 0)
         if not markup:
-            self._live_raw = ""
+            # Push blank lines to erase any stale live content
+            if prev_count:
+                self._live_raw = "\n".join("\x1b[K" for _ in range(prev_count))
+            else:
+                self._live_raw = ""
+            self._prev_live_line_count = 0
             return
         lines = markup.split("\n")
-        self._live_raw = "\n".join(_r2a(line) for line in lines)
+        n = len(lines)
+        ansi = [_r2a(line).replace("\r", "") + "\x1b[K" for line in lines]
+        # Pad with blank erase-lines if content shrank
+        for _ in range(max(0, prev_count - n)):
+            ansi.append("\x1b[K")
+        self._prev_live_line_count = n
+        self._live_raw = "\n".join(ansi)
 
     def _get_all_lines(self) -> list[str]:
         lines = list(self._history_raw)
@@ -60,9 +76,9 @@ class _ContentMixin:
             else:
                 subprocess.run(["xclip", "-selection", "clipboard"],
                                input=plain.encode("utf-8"), check=True)
-            self._write(f"[dim]  ✓ {t('ui.copy_ok')}[/dim]")
+            self._write(f"[dim]  OK {t('ui.copy_ok')}[/dim]")
         except Exception as e:
-            self._write(f"[dim]  ✗ {t('ui.copy_fail').format(e=e)}[/dim]")
+            self._write(f"[dim]  ERR {t('ui.copy_fail').format(e=e)}[/dim]")
 
     def _replay_history(self) -> None:
         try:
@@ -77,7 +93,7 @@ class _ContentMixin:
                     self._completed_nodes.add("leader_generate")
                 if any(x in markup for x in ["Pipeline complete", "Pipeline failed", "Finalize", t("pipeline.complete"), t("pipeline.failed")]):
                     self._completed_nodes.update(
-                        {"ambassador", "leader_generate", "human_context_gate", "finalize_phase1"}
+                        {"ambassador", "leader_generate", "human_context_gate", "restore_worker", "finalize_phase1"}
                     )
         except Exception:
             pass

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
@@ -30,8 +30,9 @@ BRIGHT_BLUE = "#4169E1"
 SOFT_WHITE = "#E8E8F0"
 
 
-def header(title: str) -> None:
-    console.print(
+def header(title: str, *, out=None) -> None:
+    sink = out or console
+    sink.print(
         Panel(
             Text(title, style=Style(color=BRIGHT_BLUE, bold=True), justify="center"),
             box=DOUBLE,
@@ -39,7 +40,7 @@ def header(title: str) -> None:
             padding=(1, 4),
         )
     )
-    console.print()
+    sink.print()
 
 
 def fmt_budget_line(name: str, metric: tracker.BudgetMetric) -> str:
@@ -115,7 +116,7 @@ def pick_range_rows() -> tuple[str, list[dict], Optional[datetime], Optional[dat
             except ValueError:
                 console.print(f"[red]{t('dash.range_invalid_fmt')}[/red]")
                 continue
-        label = f"{since.isoformat(timespec='minutes')} … {until.isoformat(timespec='minutes')}"
+        label = f"{since.isoformat(timespec='minutes')} ... {until.isoformat(timespec='minutes')}"
         rows = tracker.read_usage_rows_timerange(since, until)
         return (label, rows, since, until)
 
@@ -132,7 +133,7 @@ def render_history_table(rows: list[dict], title: str) -> None:
     for r in rows:
         table.add_row(
             format_row_time(r),
-            str(r.get("role_key") or r.get("agent") or "—"),
+            str(r.get("role_key") or r.get("agent") or "-"),
             str(r.get("model") or "")[:48],
             f"{safe_int(r.get('prompt_tokens')):,}",
             f"{safe_int(r.get('completion_tokens')):,}",
@@ -168,22 +169,23 @@ def render_session_usage_panel() -> None:
         r_table.add_column(t('dash.spend'), justify="right", width=10)
         for rk, stats in sorted(by_role.items(), key=lambda x: x[0]):
             wk = id_to.get(rk, {})
-            role_label = str(wk.get("role", "—"))[:22]
+            role_label = str(wk.get("role", "-"))[:22]
             by_model = stats.get("by_model") or {}
             if not by_model:
-                r_table.add_row(rk, role_label, str(wk.get("model", "—"))[:28], str(stats.get("requests", 0)), f"{int(stats.get('tokens', 0)):,}", f"${float(stats.get('cost_usd', 0.0)):.4f}")
+                r_table.add_row(rk, role_label, str(wk.get("model", "-"))[:28], str(stats.get("requests", 0)), f"{int(stats.get('tokens', 0)):,}", f"${float(stats.get('cost_usd', 0.0)):.4f}")
             else:
                 for mid, ms in sorted(by_model.items(), key=lambda x: str(x[0])):
-                    r_table.add_row(rk, role_label, (mid or str(wk.get("model", "—")))[:28], str(ms.get("requests", 0)), f"{int(ms.get('tokens', 0)):,}", f"${float(ms.get('cost_usd', 0.0)):.4f}")
+                    r_table.add_row(rk, role_label, (mid or str(wk.get("model", "-")))[:28], str(ms.get("requests", 0)), f"{int(ms.get('tokens', 0)):,}", f"${float(ms.get('cost_usd', 0.0)):.4f}")
         console.print(Panel(r_table, title=f"[bold {PASTEL_CYAN}]{t('dash.usage_role_model_session')}[/bold {PASTEL_CYAN}]", border_style=PASTEL_BLUE, box=ROUNDED))
     except (ImportError, RuntimeError, ValueError):
         console.print(f"[dim]{t('dash.usage_render_err')}[/dim]")
 
 
-def render_wallet_usage(summary: tracker.DashboardSummary):
+def render_wallet_usage(summary: tracker.DashboardSummary, *, out=None) -> None:
+    sink = out or console
     wallet_table = Table(box=ROUNDED, show_header=False, border_style=PASTEL_BLUE, padding=(0, 2))
     wallet_table.add_column(t("dash.field_col"), style=Style(color=PASTEL_CYAN), width=22)
     wallet_table.add_column(t("ui.value"), style="white", width=24)
     wallet_table.add_row(t('dash.total_credits'), f"${summary.total_credits:.4f}")
     wallet_table.add_row(t('dash.remaining'), f"${summary.remaining_credits:.4f}")
-    console.print(Panel(wallet_table, title=f"[bold {PASTEL_CYAN}]{t('dash.wallet_live')}[/bold {PASTEL_CYAN}]", border_style=PASTEL_BLUE, box=ROUNDED))
+    sink.print(Panel(wallet_table, title=f"[bold {PASTEL_CYAN}]{t('dash.wallet_live')}[/bold {PASTEL_CYAN}]", border_style=PASTEL_BLUE, box=ROUNDED))

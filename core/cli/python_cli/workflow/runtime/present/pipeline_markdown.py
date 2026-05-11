@@ -10,16 +10,16 @@ _MAX_PER_ROW = 4  # nodes per row before wrapping
 
 def _glyph(visual: str, spin_char: str, spin_pulse: bool) -> str:
     if visual == "spin":
-        # Braille spinner — animated gray
+        # Braille spinner -- animated gray
         return f"[#888888]{spin_char}[/#888888]"
     if visual == "wait":
         return "[yellow]*◉[/yellow]"
     if visual == "done":
-        return "[bold green]●[/bold green]"
+        return "[bold green]*[/bold green]"
     if visual == "error":
         return "[red]✗[/red]"
-    # pending — static gray dot
-    return "[grey46]○[/grey46]"
+    # pending -- static gray dot
+    return "[grey46]o[/grey46]"
 
 
 def _build_row(
@@ -43,7 +43,7 @@ def _build_row(
         subtitle = role_subtitle(sid, tier, selected_leader)
         col_bottom.append(f"[dim]{subtitle}[/dim]" if subtitle else "[dim] [/dim]")
 
-    sep = "  [dim white]───[/dim white]  "
+    sep = "  [dim white]---[/dim white]  "
     line1 = sep.join(col_top)
 
     if not is_last_row:

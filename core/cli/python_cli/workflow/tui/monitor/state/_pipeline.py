@@ -1,4 +1,4 @@
-"""Pipeline-level state renderers — idle, transitional, finalizing, btw."""
+"""Pipeline-level state renderers -- idle, transitional, finalizing, btw."""
 from __future__ import annotations
 
 from core.cli.python_cli.i18n import t
@@ -14,7 +14,7 @@ def render_transitional(sc: str) -> str:
 
 
 def render_finalizing(sc: str) -> str:
-    return f"[dim]{sc}[/dim] [bold]Finalize[/bold]\n[dim]└── {t('pipeline.finalizing')}[/dim]"
+    return f"[dim]{sc}[/dim] [bold]Finalize[/bold]\n[dim]+-- {t('pipeline.finalizing')}[/dim]"
 
 
 def render_unknown(sc: str, step: str) -> str:
@@ -24,5 +24,5 @@ def render_unknown(sc: str, step: str) -> str:
 def render_btw_injecting(sc: str, role_name: str) -> str:
     return (
         f"[dim]{sc}[/dim] [bold]{role_name}[/bold]\n"
-        f"[dim]└── {t('pipeline.btw_checking')}[/dim]"
+        f"[dim]+-- {t('pipeline.btw_checking')}[/dim]"
     )

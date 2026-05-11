@@ -19,7 +19,7 @@ def score_bar(val: float, width: int = 28) -> str:
     try:
         v = float(val)
     except (TypeError, ValueError):
-        return "—"
+        return "--"
     if v > 1.0 + 1e-9:
         x = max(0.0, min(1.0, v / 100.0)) if v <= 100.0 else 1.0
     else:

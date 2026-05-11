@@ -70,35 +70,42 @@ def _aca_display(aca: str) -> str:
 
 def show_settings():
     settings = get_cli_settings()
-    clear_screen()
-    console.print(
-        Panel(
-            f"[bold #6495ED]{t('settings.header')}[/bold #6495ED]",
-            border_style="#6495ED", box=ROUNDED, padding=(0, 4),
-        )
-    )
-    console.print()
+
+    from io import StringIO
+    from rich.console import Console
+    # We use a dedicated console to capture the ANSI output
+    cap = Console(file=StringIO(), force_terminal=True, color_system="truecolor")
 
     while True:
-        console.print(_settings_table(settings))
-        console.print()
+        cap.clear()
+        cap.print(
+            Panel(
+                f"[bold #6495ED]{t('settings.header')}[/bold #6495ED]",
+                border_style="#6495ED", box=ROUNDED, padding=(0, 4),
+            )
+        )
+        cap.print()
+        cap.print(_settings_table(settings))
+        cap.print()
+
+        ansi = cap.file.getvalue() # type: ignore
 
         choice = ask_choice(
             f"[{PASTEL_CYAN}]>[/{PASTEL_CYAN}]",
             ["/back", "/exit", "/auto-accept", "/context-action", "/external-terminal", "/language"],
             default="/back",
-            context="settings"
+            context="settings",
+            header_ansi=ansi
         )
-        if choice in ("exit", "/exit"):
+
+        if choice == "/exit":
             raise NavToMain
-        if choice in ("back", "/back"):
+        if choice == "/back":
             return
 
         if choice == "/auto-accept":
             settings["auto_accept_context"] = not settings["auto_accept_context"]
             save_cli_settings(settings)
-            label = t('ui.on') if settings["auto_accept_context"] else t('ui.off')
-            console.print(f"[green]  {t('settings.auto_accept')} → {label}[/green]")
 
         elif choice == "/context-action":
             cur = str(settings.get("auto_context_action", "ask"))
@@ -106,32 +113,15 @@ def show_settings():
             nxt = opts[(opts.index(cur) + 1) % len(opts)] if cur in opts else "ask"
             settings["auto_context_action"] = nxt
             save_cli_settings(settings)
-            label = t(f'ui.{nxt}')
-            console.print(f"[green]  {t('settings.context_act')} → {label}[/green]")
 
         elif choice == "/external-terminal":
             settings["help_external_terminal"] = not bool(settings.get("help_external_terminal", False))
             save_cli_settings(settings)
-            label = t('ui.on') if settings["help_external_terminal"] else t('ui.off')
-            console.print(f"[green]  {t('settings.help_ext')} → {label}[/green]")
 
         elif choice == "/language":
             cur_lang = str(settings.get("display_language", "vi"))
             nxt_lang = "en" if cur_lang == "vi" else "vi"
             settings["display_language"] = nxt_lang
             save_cli_settings(settings)
-            lang_label = "Tiếng Việt" if nxt_lang == "vi" else "English"
-            console.print(f"[green]  {t('settings.lang')} → {nxt_lang} ({lang_label})[/green]")
-
-        time.sleep(0.4)
-        clear_screen()
-        console.print(
-            Panel(
-                f"[bold #6495ED]{t('settings.header')}[/bold #6495ED]",
-                border_style="#6495ED", box=ROUNDED, padding=(0, 4),
-            )
-        )
-        console.print()
-
 
 __all__ = ["show_settings"]

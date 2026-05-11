@@ -1,102 +1,101 @@
-"""Leader state renderers — reading, reasoning, generating/regenerating."""
+"""Leader state renderers: reading / thinking / writing tree."""
 from __future__ import annotations
+
 from core.cli.python_cli.i18n import t
 
+_L_ORDER = ("reading", "thinking", "writing")
 
-def render_leader_tree(sc: str, role: str, st: dict, elapsed: int = 0) -> str:
-    """Unified leader live-display tree.
 
-    st keys: substate, read_pt, read_elapsed, reasoning_acc, reasoning_active,
-             buf, pt, ct, attempt, is_done
-    """
-    is_done          = st.get('is_done', False)
-    attempt          = st.get('attempt', 1)
-    substate         = st.get('substate', 'generating')
-    reasoning_acc    = st.get('reasoning_acc', '')
-    reasoning_active = st.get('reasoning_active', False)
-    has_reasoning    = bool(reasoning_acc)
+def _branch_label(s: str) -> str:
+    return {
+        "reading": t("unit.reading"),
+        "thinking": t("unit.thinking"),
+        "writing": t("unit.writing"),
+    }.get(s, s)
 
-    sc_part = "[bold green]●[/bold green]" if is_done else f"[#888888]{sc}[/#888888]"
-    parts   = [f"{sc_part} [bold]{role}[/bold]"]
 
-    def _meta(*vals) -> str:
-        filt = [str(v) for v in vals if v]
-        return f"  [dim]({'  '.join(filt)})[/dim]" if filt else ""
+def _meta(*vals) -> str:
+    filt = [str(v) for v in vals if v]
+    return f"  [dim]({'  '.join(filt)})[/dim]" if filt else ""
 
-    # ── 1. Reading (attempt 1 only) ───────────────────────────────────────────
-    if attempt == 1:
-        r_pt   = st.get('read_pt', 0)
-        r_elap = st.get('read_elapsed', 0)
 
-        if substate == 'reading' and not has_reasoning:
-            meta = _meta(
-                f"{elapsed}s" if elapsed else "",
-                f"in:{r_pt:,}" if r_pt else "",
-            )
-            parts.append(f"[dim]└─[/dim] {t('info.reading_file').format(f='state.json')}{meta}")
-            return "\n".join(parts)
+def _safe(text: object, limit: int = 98) -> str:
+    return str(text or "").replace("[", "\\[")[:limit]
 
-        # Reading done
-        meta = _meta(
-            f"{r_elap}s" if r_elap else "",
-            f"in:{r_pt:,}" if r_pt else "",
-        )
-        parts.append(f"[dim]├─[/dim] {t('info.reading_file').format(f='state.json')}{meta} [green]✓[/green]")
 
-    # ── 2. Reasoning — visible whenever the model produces reasoning tokens ───
-    if has_reasoning:
-        r_lines = [ln for ln in reasoning_acc.split("\n") if ln.strip()]
-        r_ct    = st.get('ct', 0)
-        # Blue spinning dot when active, green ✓ when done
-        dot    = f" [bold blue]{sc}[/bold blue]" if reasoning_active else " [green]✓[/green]"
-        meta   = _meta(
-            f"{elapsed}s" if elapsed else "",
-            f"out:{r_ct:,}" if r_ct else "",
-        )
-        parts.append(f"[dim]└─[/dim] {t('unit.reasoning')}{dot}{meta}")
-        for i, ln in enumerate(r_lines[-5:]):
-            pfx  = "[dim]  └─[/dim]" if i == 0 else "[dim]    [/dim]"
-            safe = ln.replace("[", "\\[")
-            parts.append(f"{pfx} [dim]{safe[:94]}[/dim]")
+def render_leader_tree(sc: str, role: str, st: dict, elapsed: int = 0, tok: str = "") -> str:
+    is_done = bool(st.get("is_done", False))
+    attempt = int(st.get("attempt", 1) or 1)
+    substate = str(st.get("substate") or "reading")
+    detail = str(st.get("detail") or "")
+    reasoning_acc = str(st.get("reasoning_acc") or "")
+    reasoning_active = bool(st.get("reasoning_active", False))
+    buf = str(st.get("buf") or "")
+    pt = int(st.get("pt") or 0)
+    ct = int(st.get("ct") or 0)
+    r_pt = int(st.get("read_pt") or 0)
+
+    if substate in ("generating", "idle", ""):
+        substate = "thinking" if (buf or pt or ct or reasoning_acc or reasoning_active) else "reading"
+
+    sc_part = "[bold green]*[/bold green]" if is_done else f"[#888888]{sc}[/#888888]"
+    parts = [f"{sc_part} [bold]{role}[/bold]{tok if is_done else ''}"]
+
+    if is_done:
+        for i, s in enumerate(_L_ORDER):
+            conn = "`-" if i == len(_L_ORDER) - 1 else "+-"
+            parts.append(f"[dim]{conn}[/dim] {_branch_label(s)} [green]OK[/green]")
         return "\n".join(parts)
 
-    # ── 3. Generating / regenerating ─────────────────────────────────────────
-    label_key = 'info.regenerate_file' if attempt > 1 else 'info.generate_file'
-    label     = t(label_key).format(f='context.md')
-    
-    g_pt   = st.get('pt', 0)
-    g_ct   = st.get('ct', 0)
-    g_meta = []
-    if not is_done and elapsed: g_meta.append(f"{elapsed}s")
-    if g_pt: g_meta.append(f"in:{g_pt:,}")
-    if g_ct: g_meta.append(f"out:{g_ct:,}")
-    if attempt > 1: g_meta.append(f"{t('unit.attempt')} {attempt}")
-    meta_s = f"  [dim]({'  '.join(g_meta)})[/dim]" if g_meta else ""
-    check  = " [green]✓[/green]" if is_done else ""
+    try:
+        cur_idx = _L_ORDER.index(substate)
+    except ValueError:
+        cur_idx = 1
 
-    parts.append(f"[dim]└─[/dim] {label}{meta_s}{check}")
+    spin = f" [bold blue]{sc}[/bold blue]"
+    for i, s in enumerate(_L_ORDER):
+        conn = "`-" if i == cur_idx else "+-"
+        if i < cur_idx:
+            parts.append(f"[dim]{conn}[/dim] {_branch_label(s)} [green]OK[/green]")
+            continue
+        if i > cur_idx:
+            continue
 
-    if not is_done:
-        buf       = st.get('buf', '')
-        buf_lines = [ln for ln in buf.split("\n") if ln.strip()] if buf else []
-        # Skip model preamble — only show from first # heading
-        start = None
-        for idx, ln in enumerate(buf_lines):
-            if ln.lstrip().startswith('#'):
-                start = idx
-                break
-        if start is not None:
-            for i, ln in enumerate(buf_lines[start:][-5:]):
-                pfx  = "[dim]  └─[/dim]" if i == 0 else "[dim]    [/dim]"
-                safe = ln.replace("[", "\\[")
-                parts.append(f"{pfx} [dim]{safe[:98]}[/dim]")
+        if s == "reading":
+            meta_s = _meta(
+                f"{elapsed}s" if elapsed else "",
+                f"in:{r_pt:,}" if r_pt else "",
+                f"{t('unit.attempt')} {attempt}" if attempt > 1 else "",
+            )
+            parts.append(f"[dim]{conn}[/dim] {_branch_label(s)} [dim]{detail or 'state.json'}[/dim]{spin}{meta_s}")
+        elif s == "thinking":
+            meta_s = _meta(
+                f"{elapsed}s" if elapsed else "",
+                f"in:{pt:,}" if pt else "",
+                f"out:{ct:,}" if ct else "",
+                f"{t('unit.attempt')} {attempt}" if attempt > 1 else "",
+            )
+            parts.append(f"[dim]{conn}[/dim] {_branch_label(s)}{spin}{meta_s}")
+            show = reasoning_acc or buf
+            lines = [ln for ln in show.splitlines() if ln.strip() and "[CLARIFICATION]" not in ln][-30:]
+            for j, ln in enumerate(lines):
+                pfx = "  `-" if j == 0 else "    "
+                parts.append(f"[dim]{pfx}[/dim] [dim]{_safe(ln)}[/dim]")
+        else:
+            meta_s = _meta(
+                f"in:{pt:,}" if pt else "",
+                f"out:{ct:,}" if ct else "",
+                f"{t('unit.attempt')} {attempt}" if attempt > 1 else "",
+            )
+            parts.append(f"[dim]{conn}[/dim] {_branch_label(s)}{spin}{meta_s}")
+            parts.append(f"  [dim]`-[/dim] [dim]{_safe(detail or 'context.md', 90)}[/dim]")
 
     return "\n".join(parts)
 
 
 def render_regen_starting(sc: str, role: str, attempt: int) -> str:
-    """Shown during idle gap while pipeline restarts for regen."""
-    return (
-        f"[#888888]{sc}[/#888888] [bold]{role}[/bold]\n"
-        f"[dim]└─[/dim] {t('info.regenerate_file').format(f='context.md')}…  [dim]({t('unit.attempt')} {attempt})[/dim]"
+    return render_leader_tree(
+        sc,
+        role,
+        {"substate": "reading", "detail": "state.json", "attempt": attempt, "is_done": False},
     )

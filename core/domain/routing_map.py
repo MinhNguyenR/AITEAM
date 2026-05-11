@@ -1,4 +1,4 @@
-"""Single source of truth: task tier → leader registry key, DeltaBrief.selected_leader, pipeline node order.
+"""Single source of truth: task tier -> leader registry key, DeltaBrief.selected_leader, pipeline node order.
 
 When routing by declared skills, consult `core.domain.skills` registry / `hooks.prompt_fragment_for_skill`.
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Tuple
 
 _TIER_ROUTE: dict[str, Tuple[str, str]] = {
-    "LOW":    ("LEADER_MEDIUM", "LEADER_MEDIUM"),
+    "LOW":    ("LEADER_LOW",    "LEADER_LOW"),
     "MEDIUM": ("LEADER_MEDIUM", "LEADER_MEDIUM"),
     "HARD":   ("LEADER_HIGH",   "LEADER_HIGH"),
 }
@@ -19,7 +19,16 @@ _PIPELINE_NODES_DEFAULT: tuple[str, ...] = (
     "ambassador",
     "leader_generate",
     "human_context_gate",
+    "parallel_prepare",
+    "secretary_setup",
     "tool_curator",
+    "worker_a",
+    "worker_b",
+    "worker_c",
+    "worker_d",
+    "worker_e",
+    "parallel_join",
+    "secretary",
     "finalize_phase1",
 )
 _PIPELINE_NODES_BY_TIER: dict[str, tuple[str, ...]] = {

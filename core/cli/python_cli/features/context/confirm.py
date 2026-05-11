@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import time
 from pathlib import Path
@@ -9,6 +9,7 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from core.cli.python_cli.shell.prompt import ask_choice
+from core.cli.python_cli.shell.safe_read import safe_read_text
 from core.cli.python_cli.shell.safe_editor import run_editor_on_file
 from core.cli.python_cli.features.context.common import full_context_cleanup, graphrag_drop
 from core.cli.python_cli.shell.nav import NavToMain
@@ -22,7 +23,7 @@ ContextConfirmResult = Literal["accept", "regenerate", "back", "delete"]
 def confirm_context(context_path: Path) -> ContextConfirmResult:
     clear_screen()
     print_header(t("context.header"), t("context.subheader"))
-    content = context_path.read_text(encoding="utf-8")
+    content = safe_read_text(context_path)
     lines = content.splitlines()
     line_count = len(lines)
     char_count = len(content)
@@ -41,7 +42,7 @@ def confirm_context(context_path: Path) -> ContextConfirmResult:
             default="/accept",
             context="context_confirm",
         ).lower()
-        if choice in ("exit", "/exit"):
+        if choice == "/exit":
             raise NavToMain
         if choice == "/accept":
             console.print(f"[bold green]{t('context.accepted')}[/bold green]")

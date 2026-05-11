@@ -1,25 +1,17 @@
-"""Tool Curator state renderer — branching tree across 4 substates.
-
-Substates:
-    reading      → reads context.md
-    thinking     → LLM analyzing dependencies (out tokens stream)
-    looking_for  → scanning project files / pip list
-    writing      → writing tools.md (out tokens stream)
-"""
+"""Tool Curator state renderer."""
 from __future__ import annotations
 
 from core.cli.python_cli.i18n import t
-
 
 _ORDER = ("reading", "thinking", "looking_for", "writing")
 
 
 def _label(substate: str) -> str:
     return {
-        "reading":     t("curator.reading"),
-        "thinking":    t("curator.thinking"),
-        "looking_for": t("curator.looking_for"),
-        "writing":     t("curator.writing"),
+        "reading": t("unit.reading"),
+        "thinking": t("unit.thinking"),
+        "looking_for": t("unit.using"),
+        "writing": t("unit.writing"),
     }.get(substate, substate)
 
 
@@ -28,26 +20,25 @@ def _meta(*vals: str) -> str:
     return f"  [dim]({'  '.join(filt)})[/dim]" if filt else ""
 
 
+def _safe(text: object, limit: int = 98) -> str:
+    return str(text or "").replace("[", r"\[")[:limit]
+
+
 def render_curator_tree(sc: str, role: str, st: dict, elapsed: int = 0) -> str:
-    """Render the Tool Curator live tree.
-
-    st keys: substate, detail, pt, ct, is_done
-    """
-    is_done  = bool(st.get("is_done"))
+    is_done = bool(st.get("is_done"))
     substate = str(st.get("substate") or "reading")
-    detail   = str(st.get("detail") or "")
-    pt       = int(st.get("pt") or 0)
-    ct       = int(st.get("ct") or 0)
+    detail = str(st.get("detail") or "")
+    pt = int(st.get("pt") or 0)
+    ct = int(st.get("ct") or 0)
+    buf = str(st.get("buf") or "")
 
-    sc_part = "[bold green]●[/bold green]" if is_done else f"[#888888]{sc}[/#888888]"
+    sc_part = "[bold green]*[/bold green]" if is_done else f"[#888888]{sc}[/#888888]"
     parts = [f"{sc_part} [bold]{role}[/bold]"]
 
     if is_done:
-        for s in _ORDER:
-            parts.append(f"[dim]├─[/dim] {_label(s)} [green]✓[/green]")
-        # Replace last connector with └─ for tidiness
-        if len(parts) >= 2:
-            parts[-1] = parts[-1].replace("├─", "└─", 1)
+        for i, s in enumerate(_ORDER):
+            conn = "`-" if i == len(_ORDER) - 1 else "+-"
+            parts.append(f"[dim]{conn}[/dim] {_label(s)} [green]OK[/green]")
         return "\n".join(parts)
 
     try:
@@ -56,32 +47,33 @@ def render_curator_tree(sc: str, role: str, st: dict, elapsed: int = 0) -> str:
         cur_idx = 0
 
     for i, s in enumerate(_ORDER[:cur_idx]):
-        parts.append(f"[dim]├─[/dim] {_label(s)} [green]✓[/green]")
+        conn = "+-" if i < cur_idx else "`-"
+        parts.append(f"[dim]{conn}[/dim] {_label(s)} [green]OK[/green]")
 
-    # Active substate (last)
-    spin = f" [bold blue]{sc}[/bold blue]"
     meta_bits: list[str] = []
     if elapsed:
         meta_bits.append(f"{elapsed}s")
-    if substate in ("reading",) and pt:
+    if pt:
         meta_bits.append(f"in:{pt:,}")
-    if substate in ("thinking", "writing") and ct:
+    if ct and substate in ("thinking", "writing"):
         meta_bits.append(f"out:{ct:,}")
-    meta = _meta(*meta_bits)
+    parts.append(f"[dim]`-[/dim] {_label(substate)} [bold blue]{sc}[/bold blue]{_meta(*meta_bits)}")
 
-    parts.append(f"[dim]└─[/dim] {_label(substate)}{spin}{meta}")
-    if detail:
-        safe = detail.replace("[", r"\[")
-        parts.append(f"  [dim]└─[/dim] [dim]{safe[:94]}[/dim]")
+    show = buf if substate in ("thinking", "writing") else detail
+    lines = [ln for ln in str(show or "").splitlines() if ln.strip()][-8:]
+    if not lines and detail:
+        lines = [detail]
+    for j, ln in enumerate(lines):
+        pfx = "  `-" if j == 0 else "    "
+        parts.append(f"[dim]{pfx}[/dim] [dim]{_safe(ln)}[/dim]")
+
     return "\n".join(parts)
 
 
 def render_curator_done(role: str, tok: str = "") -> str:
-    head = f"[bold green]●[/bold green] [bold]{role}[/bold]{tok}"
-    branches = [
-        f"[dim]├─[/dim] {_label('reading')} [green]✓[/green]",
-        f"[dim]├─[/dim] {_label('thinking')} [green]✓[/green]",
-        f"[dim]├─[/dim] {_label('looking_for')} [green]✓[/green]",
-        f"[dim]└─[/dim] {_label('writing')} [green]✓[/green]",
-    ]
+    head = f"[bold green]*[/bold green] [bold]{role}[/bold]{tok}"
+    branches = []
+    for i, s in enumerate(_ORDER):
+        conn = "`-" if i == len(_ORDER) - 1 else "+-"
+        branches.append(f"[dim]{conn}[/dim] {_label(s)} [green]OK[/green]")
     return "\n".join([head, *branches])

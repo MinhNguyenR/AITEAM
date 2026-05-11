@@ -1,6 +1,6 @@
 """Tests for agents/_budget_manager.py."""
 import pytest
-from agents._budget_manager import BudgetManager
+from agents.support._budget_manager import BudgetManager
 from agents.base_agent import BudgetExceeded
 
 

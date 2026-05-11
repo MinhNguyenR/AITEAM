@@ -6,7 +6,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
     "DEVOPS": {
         "model": "deepseek/deepseek-v4-pro",
         "role": "DevOps",
-        "reason": "Chuyên gia IaC (Terraform), Kubernetes và CI/CD. Thiết kế hạ tầng Cloud và tối ưu triển khai.",
+        "reason": "Thiết kế hạ tầng IaC, quản lý Kubernetes và quy trình CI/CD.",
         "tier": "DEVOPS",
         "priority": 3,
         "max_tokens": 4096,

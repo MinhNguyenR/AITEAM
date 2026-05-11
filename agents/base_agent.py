@@ -23,9 +23,9 @@ from openai import OpenAI
 from core.config import config
 from core.config.constants import API_BASE_BACKOFF_SEC, API_MAX_RETRIES
 
-from agents._budget_manager import BudgetManager
-from agents._api_client import APIClient
-from agents._knowledge_manager import KnowledgeManager
+from agents.support._budget_manager import BudgetManager
+from agents.support._api_client import APIClient
+from agents.support._knowledge_manager import KnowledgeManager
 
 logger = logging.getLogger(__name__)
 

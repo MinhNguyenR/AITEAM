@@ -33,7 +33,7 @@ def palette_footer_markup(context: str, gate_pending: bool = False) -> str:
             continue
         cmds.append(c)
     if len(cmds) > _MAX_FOOTER_CMDS:
-        compact = " · ".join(cmds[:_MAX_FOOTER_CMDS]) + " · …"
+        compact = " . ".join(cmds[:_MAX_FOOTER_CMDS]) + " . ..."
     else:
-        compact = " · ".join(cmds)
-    return f"[dim]{compact}  ·  {t('cmd.palette_hint')}[/dim]"
+        compact = " . ".join(cmds)
+    return f"[dim]{compact}  .  {t('cmd.palette_hint')}[/dim]"

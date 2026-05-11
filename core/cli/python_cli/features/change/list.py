@@ -15,9 +15,9 @@ from core.cli.python_cli.i18n import t
 
 def _resolve_worker_raw(raw: str, workers: list[dict]) -> Optional[str]:
     """Resolve a raw input string to a worker id. Returns None if unresolved."""
-    if raw in ("back", "b", ""):
+    if raw in ("/back", ""):
         return None
-    if raw == "exit":
+    if raw == "/exit":
         raise NavToMain
     # /enter <N> or bare number
     if raw.startswith("/enter "):
@@ -35,7 +35,8 @@ def pick_role_key_from_indexed_workers(workers: list[dict]) -> Optional[str]:
     console.print()
     try:
         from core.cli.python_cli.ui.palette_app import ask_with_palette
-        raw = ask_with_palette(f"{t('nav.choose')} ", context="agent_list", default="back").strip().lower()
+        raw = ask_with_palette("> ", context="agent_list", default="/back").strip().lower()
+
     except (KeyboardInterrupt, EOFError):
         return None
     return _resolve_worker_raw(raw, workers)
@@ -55,7 +56,7 @@ def show_change_list() -> Optional[str]:
     table.add_column(t("info.ovr"), justify="center", width=10)
     for i, w in enumerate(workers, 1):
         active_label = "[green]ON[/green]" if w.get("active", True) else "[red]OFF[/red]"
-        override_label = "[yellow]OVR[/yellow]" if w.get("is_overridden") else "[dim]—[/dim]"
+        override_label = "[yellow]OVR[/yellow]" if w.get("is_overridden") else "[dim]--[/dim]"
         prompt_tag = " [cyan]P[/cyan]" if w.get("prompt_status") == "overridden" else ""
         table.add_row(
             str(i),
@@ -72,7 +73,8 @@ def show_change_list() -> Optional[str]:
     console.print()
     try:
         from core.cli.python_cli.ui.palette_app import ask_with_palette
-        raw = ask_with_palette(f"{t('nav.choose_role')} ", context="agent_list", default="back").strip().lower()
+        raw = ask_with_palette("> ", context="agent_list", default="/back").strip().lower()
+
     except (KeyboardInterrupt, EOFError):
         return None
     return _resolve_worker_raw(raw, workers)

@@ -1,42 +1,46 @@
-"""Mixin: _handle_cmd dispatcher; sub-handlers live in _commands_*.py modules."""
+﻿"""Mixin: _handle_cmd dispatcher; sub-handlers live in command modules."""
 from __future__ import annotations
 
-import threading
-
-from ..core._constants import (
-    _GATE_ACCEPTED, _GATE_DECLINED, _GATE_WAITING, _GATE_REGEN,
-)
 from core.cli.python_cli.i18n import t
+
+from ..core._constants import _GATE_ACCEPTED, _GATE_DECLINED, _GATE_REGEN, _GATE_WAITING
+from .gate import handle_accept, handle_delete, handle_post_delete, handle_post_delete_clear
+from .explainer import handle_explainer_inline as _handle_explainer_fn
 
 
 class _CommandsMixin:
-
     def _handle_check_cmd(self, cmd: str) -> None:
         from .check import handle_check_cmd
-        handle_check_cmd(self, cmd)
 
-    # ── main command handler ──────────────────────────────────────────────────
+        handle_check_cmd(self, cmd)
 
     def _handle_cmd(self, raw: str) -> None:
         from ....runtime import session as ws
-        from ..helpers import _project_root_default, _info_list_lines
-        raw  = (raw or "").strip()
+        from ..helpers import _info_list_lines, _project_root_default
+
+        raw = (raw or "").strip()
         root = _project_root_default()
 
         if self._log_mode:
-            if raw.lower() == "exit":
+            low = raw.lower()
+            if low == "/exit":
                 self._close_log()
                 if self._app:
                     self._app.exit()
-            elif raw.lower() in ("q", "quit", "close", "back", ""):
+            elif low in ("q", "esc", "/back", ""):
                 self._close_log()
-            elif raw.lower() in ("clear log", "clear"):
+            elif low.startswith("/open "):
+                parts = raw.split(None, 1)
+                self._open_log_file(parts[1] if len(parts) > 1 else "")
+            elif low in ("/clear log", "/clear"):
                 try:
                     from ....runtime.persist.activity_log import clear_activity_log
+
                     clear_activity_log()
                 except Exception:
                     pass
                 from ..core._utils import _r2a
+
                 self._log_lines = [_r2a(f"[dim]  ({t('cmd.log_cleared')})[/dim]")]
                 self._log_scroll = 0
                 if self._app:
@@ -52,83 +56,91 @@ class _CommandsMixin:
             self._do_new_task(raw, mode, root)
             return
 
-        # Clarification response
         if self._clarif_mode:
             clarif = self._clarif_data
             q_list = clarif.get("q_list", [])
-            idx    = getattr(self, "_clarif_idx", 0)
-            
-            if raw in ("/back", "back") and idx > 0:
+            idx = getattr(self, "_clarif_idx", 0)
+
+            if raw == "/back" and idx > 0:
                 self._clarif_idx -= 1
                 if len(self._clarif_answers) > self._clarif_idx:
                     self._clarif_answers.pop()
                 self._set_live("")
-                if self._app: self._app.invalidate()
+                if self._app:
+                    self._app.invalidate()
                 return
 
             if idx >= len(q_list):
-                return # Should not happen, waiting for sync
+                return
 
             current_q = q_list[idx]
-            opts   = current_q.get("options", [])
+            opts = current_q.get("options", [])
             answer: str | None = None
 
             if raw.isdigit():
                 oidx = int(raw) - 1
                 if 0 <= oidx < len(opts):
                     answer = f"Q: {current_q.get('question')} -> A: {t('clarify.option')} {raw} ({opts[oidx]})"
-            elif raw in ("/skip", "skip"):
-                answer = f"Q: {current_q.get('question')} -> A: __skip__"
+            elif raw == "/skip":
+                if opts:
+                    answer = f"Q: {current_q.get('question')} -> A: {t('clarify.option')} 1 ({opts[0]})"
+                else:
+                    answer = f"Q: {current_q.get('question')} -> A: __skip__"
+            elif raw.startswith("/btw"):
+                note = raw[4:].strip()
+                if note:
+                    answer = f"Q: {current_q.get('question')} -> A: {note}"
 
             if answer is not None:
                 if not hasattr(self, "_clarif_answers"):
                     self._clarif_answers = []
                 self._clarif_answers.append(answer)
                 self._clarif_idx += 1
-                
-                # If we've answered all questions
+
                 if self._clarif_idx >= len(q_list):
                     self._clarif_mode = False
                     self._clarif_data = {}
                     self._set_live("")
-                    
+
                     final_answer_text = "\n".join(self._clarif_answers)
+                    clarif_role = getattr(self, "_clarif_role", "") or t("pipeline.leader")
                     self._write(
-                        f"[bold blue]INFO[/bold blue] [bold]Leader[/bold]  [dim]\"{t('clarify.answered').format(n=len(self._clarif_answers))}\"[/dim]"
-                        f"  [green]OK[/green]"
+                        f"[bold blue]INFO[/bold blue] [bold]{clarif_role}[/bold]  "
+                        f"[dim]\"{t('clarify.answered').format(n=len(self._clarif_answers))}\"[/dim]  "
+                        f"[green]OK[/green]"
                     )
                     try:
                         ws.answer_clarification(final_answer_text)
                     except Exception:
                         pass
                 else:
-                    # Still more questions, just refresh UI
                     self._set_live("")
-                    if self._app: self._app.invalidate()
+                    if self._app:
+                        self._app.invalidate()
                 return
 
         if raw.startswith("/ask"):
-            snap = ws.get_pipeline_snapshot()
-            if str(snap.get("active_step") or "idle") not in ("idle", "end_failed", ""):
-                self._write(f"[dim]✗ {t('cmd.ask_pipeline_busy')}[/dim]")
-                return
             if self._ask_thinking:
-                self._write(f"[dim]✗ {t('cmd.ask_busy')}[/dim]")
+                self._write(f"[dim]x {t('cmd.ask_busy')}[/dim]")
                 return
             text = raw[4:].strip()
             if not text:
-                self._write(f"[dim]✗ {t('cmd.ask_usage')}[/dim]")
+                self._write(f"[dim]x {t('cmd.ask_usage')}[/dim]")
                 return
             self._do_new_task(text, "ask", root)
             return
 
         if raw.startswith("/agent"):
             if self._ask_thinking:
-                self._write(f"[dim]✗ {t('cmd.ask_busy')}[/dim]")
+                self._write(f"[dim]x {t('cmd.ask_busy')}[/dim]")
                 return
             text = raw[6:].strip()
             if not text:
-                self._write(f"[dim]✗ {t('cmd.agent_usage')}[/dim]")
+                self._write(f"[dim]x {t('cmd.agent_usage')}[/dim]")
+                return
+            snap = ws.get_pipeline_snapshot()
+            if str(snap.get("active_step") or "idle") not in ("idle", "end_failed", "") or snap.get("paused_at_gate"):
+                self._queue_task(text, "agent")
                 return
             self._do_new_task(text, "agent", root)
             return
@@ -136,13 +148,31 @@ class _CommandsMixin:
         if raw.startswith("/btw"):
             rest_btw = raw[4:].strip()
             if not rest_btw:
-                self._write(f"[dim]✗ {t('cmd.btw_empty')}[/dim]")
+                self._write(f"[dim]x {t('cmd.btw_empty')}[/dim]")
                 return
             snap_btw = ws.get_pipeline_snapshot()
             if str(snap_btw.get("active_step") or "idle") in ("idle", "end_failed", ""):
-                self._write(f"[dim]✗ {t('cmd.btw_idle')}[/dim]")
+                self._write(f"[dim]x {t('cmd.btw_idle')}[/dim]")
                 return
             self._handle_btw_inline(rest_btw, snap_btw)
+            return
+
+        if raw.startswith("/explainer"):
+            rest_exp = raw[len("/explainer"):].strip()
+            if not rest_exp:
+                self._write("[yellow]Chưa có file chỉ định. Dùng /explainer @file path/to/file.py[/yellow]")
+                return
+            self._handle_explainer_inline(rest_exp, root)
+            return
+
+        if raw.startswith("/restore"):
+            rest_restore = raw[len("/restore"):].strip()
+            task_text = ("restore " + rest_restore).strip()
+            snap = ws.get_pipeline_snapshot()
+            if str(snap.get("active_step") or "idle") not in ("idle", "end_failed", ""):
+                self._queue_task(task_text, "agent")
+                return
+            self._do_new_task(task_text, "agent", root)
             return
 
         if raw.startswith("/info"):
@@ -158,28 +188,33 @@ class _CommandsMixin:
 
         if raw.startswith("/skip"):
             if self._clarif_mode:
-                q = self._clarif_data.get("q_list", [])[self._clarif_idx].get("question", "")
+                item = self._clarif_data.get("q_list", [])[self._clarif_idx]
+                q = item.get("question", "")
+                opts = item.get("options", []) or []
                 self._clarif_mode = False
                 self._clarif_data = {}
                 self._set_live("")
-                _ans_d = t("btw.skipped")
+                default_answer = opts[0] if opts else t("btw.skipped")
+                clarif_role = getattr(self, "_clarif_role", "") or t("pipeline.leader")
                 self._write(
-                    f"[bold blue]INFO[/bold blue] [bold]{t('pipeline.leader')}[/bold]  [dim]\"{q[:60]}\"[/dim]"
-                    f"  [dim]→  {_ans_d}[/dim] [green]OK[/green]"
+                    f"[bold blue]INFO[/bold blue] [bold]{clarif_role}[/bold]  [dim]\"{q[:60]}\"[/dim]  "
+                    f"[dim]->  {default_answer}[/dim] [green]OK[/green]"
                 )
                 try:
-                    ws.answer_clarification("__skip__")
+                    ws.answer_clarification(
+                        f"Q: {q} -> A: {t('clarify.option')} 1 ({opts[0]})" if opts else "__skip__"
+                    )
                 except Exception:
                     pass
             else:
-                self._write(f"[dim]✗ {t('cmd.skip_no_clarif')}[/dim]")
+                self._write(f"[dim]x {t('cmd.skip_no_clarif')}[/dim]")
             return
 
         if raw.startswith("/clear"):
-            _snap_c = ws.get_pipeline_snapshot()
-            _active_c = str(_snap_c.get("active_step") or "idle")
-            if _active_c not in ("idle", "end_failed", ""):
-                self._write(f"[dim]✗ {t('cmd.clear_running')}[/dim]")
+            snap_c = ws.get_pipeline_snapshot()
+            active_c = str(snap_c.get("active_step") or "idle")
+            if active_c not in ("idle", "end_failed", ""):
+                self._write(f"[dim]x {t('cmd.clear_running')}[/dim]")
                 return
             rest_c = raw[6:].strip()
             if rest_c == "all":
@@ -198,32 +233,11 @@ class _CommandsMixin:
             return
 
         if raw.lower() == "/accept":
-            snap = ws.get_pipeline_snapshot()
-            if not snap.get("paused_at_gate"):
-                self._write(f"[dim]✗ {t('cmd.no_gate')}[/dim]")
-                return
-            self._gate_state = _GATE_ACCEPTED
-            self._write("")
-            self._write(f"[bold green]GATE[/bold green] [bold]Human Gate[/bold]  [bold green]OK: {t('context.accepted')}[/bold green]")
-            self._scroll_offset = 0
-            def _accept_bg():
-                try:
-                    from core.cli.python_cli.features.context.monitor_actions import apply_context_accept_from_monitor
-                    apply_context_accept_from_monitor(root)
-                except Exception:
-                    pass
-            threading.Thread(target=_accept_bg, daemon=True).start()
+            handle_accept(self, root, ws)
             return
 
         if raw.lower() == "/delete":
-            try:
-                from core.cli.python_cli.features.context.monitor_actions import apply_context_delete_from_monitor
-                apply_context_delete_from_monitor(root)
-                self._gate_state       = _GATE_DECLINED
-                self._post_delete_mode = True
-                self._scroll_offset    = 0
-            except Exception as e:
-                self._write(f"[red]✗ {t('context.delete_error').format(e=e)}[/red]")
+            handle_delete(self, root, ws)
             return
 
         if raw.lower().startswith("/log"):
@@ -236,28 +250,24 @@ class _CommandsMixin:
                 self._write(f"[dim]  {t('cmd.task_usage')}[/dim]")
                 return
             snap = ws.get_pipeline_snapshot()
-            if str(snap.get("active_step") or "idle") not in ("idle",):
-                self._write(f"[dim]✗ {t('cmd.task_running')}[/dim]")
-                return
             task_parts = rest_t.rsplit(None, 1)
             if len(task_parts) == 2 and task_parts[1].lower() in ("ask", "agent"):
                 task_text, task_mode = task_parts[0].strip(), task_parts[1].lower()
             else:
                 task_text, task_mode = rest_t, "agent"
+            if str(snap.get("active_step") or "idle") not in ("idle",):
+                self._queue_task(task_text, task_mode)
+                return
             self._do_new_task(task_text, task_mode, root)
             return
 
         if raw.lower() in ("/exit", "/quit", "/q", "/back"):
-            try:
-                ws.request_pipeline_stop()
-            except Exception:
-                pass
             if self._app:
                 self._app.exit()
             return
 
         if raw.startswith("/") and len(raw) > 1:
-            self._write(f"[dim]✗ {t('cmd.invalid_cmd').format(cmd=raw.split()[0])}[/dim]")
+            self._write(f"[dim]x {t('cmd.invalid_cmd').format(cmd=raw.split()[0])}[/dim]")
             return
 
         if self._exit_confirm_mode:
@@ -269,49 +279,15 @@ class _CommandsMixin:
             return
 
         if self._post_delete_mode:
-            self._post_delete_mode = False
-            if not raw or raw.lower() in ("n", "no"):
-                self._write(f"[dim]      SKIP[/dim] {t('del.no_regen')}")
-                self._write(f"[dim]      SKIP[/dim] {t('del.clear_prompt')}")
-                self._gate_state = _GATE_WAITING
-                self._post_delete_clear_mode = True
-                self._start_decline_countdown()
-            elif raw.lower() in ("y", "yes"):
-                self._attempt_count += 1
-                self._clarif_history = []
-                self._gate_state        = _GATE_REGEN
-                self._last_active_step  = ""
-                self._shown_file_events = []
-                self._leader_substate   = "idle"
-                self._completed_nodes.discard("leader_generate")
-                self._completed_nodes.discard("human_context_gate")
-                self._completed_nodes.discard("finalize_phase1")
-                self._write(f"[dim]      REG[/dim] [cyan]{t('del.regenerating').format(n=self._attempt_count)}[/cyan]")
-                if self._last_task_text:
-                    ws.reset_pipeline_visual()
-                    ws.set_pipeline_run_finished(False)
-                    from core.cli.python_cli.features.start.flow import start_pipeline_from_tui
-                    start_pipeline_from_tui(self._last_task_text, root, "agent", regenerate=True)
-                    self._pipeline_pending = True
-                else:
-                    self._write(f"[dim]  {t('del.no_prev_task')}[/dim]")
-            else:
-                self._do_new_task(raw, "agent", root)
+            handle_post_delete(self, raw, root, ws)
             return
 
         if getattr(self, "_post_delete_clear_mode", False):
-            self._post_delete_clear_mode = False
-            if raw.lower() in ("y", "yes"):
-                self._write(f"[dim]      DEL[/dim] [dim]{t('ui.clearing')}[/dim]")
-                self._gate_state = _GATE_WAITING
-                self._start_decline_countdown()
-            else:
-                self._write(f"[dim]      KEEP[/dim] [dim]{t('del.keep_state')}[/dim]")
-                self._gate_state = _GATE_DECLINED
+            handle_post_delete_clear(self, raw)
             return
 
         if not raw:
-            snap_e   = ws.get_pipeline_snapshot()
+            snap_e = ws.get_pipeline_snapshot()
             active_e = str(snap_e.get("active_step") or "idle")
             if active_e not in ("idle", "end_failed", "") or self._ask_thinking:
                 self._write(f"[dim]{t('cmd.running_hint').format(step=active_e)}[/dim]", indent=True)
@@ -320,43 +296,42 @@ class _CommandsMixin:
             return
 
         parts = raw.split(None, 1)
-        cmd   = parts[0].lower()
-        rest  = parts[1].strip() if len(parts) > 1 else ""
+        cmd = parts[0].lower()
 
         try:
             from core.app_state import log_system_action
+
             log_system_action("monitor.input", raw[:300])
         except Exception:
             pass
 
         if cmd in ("exit", "quit", "q", "back"):
-            try:
-                ws.request_pipeline_stop()
-            except Exception:
-                pass
-            if self._app:
-                self._app.exit()
+            self._write(f"[dim]{t('cmd.slash_required').format(cmd='/' + cmd)}[/dim]")
             return
 
-        if cmd in ("check", "accept", "delete", "log", "task", "info", "btw"):
-            self._write(f"[dim]💡 {t('cmd.slash_required').format(cmd=raw.strip())}[/dim]")
+        if cmd in ("check", "accept", "delete", "log", "task", "info", "btw", "skip", "clear", "ask", "agent"):
+            self._write(f"[dim]{t('cmd.slash_required').format(cmd='/' + cmd)}[/dim]")
             return
 
-        # Plain text → inline ask when pipeline is idle
-        snap_now   = ws.get_pipeline_snapshot()
+        snap_now = ws.get_pipeline_snapshot()
         active_now = str(snap_now.get("active_step") or "idle")
         if active_now not in ("idle", "end_failed", ""):
             self._write(f"[dim]  {t('cmd.btw_note_hint')}[/dim]")
             return
         if self._ask_thinking:
-            self._write(f"[dim]✗ {t('cmd.ask_busy')}[/dim]")
+            self._write(f"[dim]x {t('cmd.ask_busy')}[/dim]")
             return
         self._handle_ask_inline(raw)
 
     def _handle_ask_inline(self, question: str) -> None:
         from .ask import handle_ask_inline
+
         handle_ask_inline(self, question)
 
     def _handle_btw_inline(self, msg: str, snap: dict) -> None:
         from .btw import handle_btw_inline
+
         handle_btw_inline(self, msg, snap)
+
+    def _handle_explainer_inline(self, payload: str, root: str) -> None:
+        _handle_explainer_fn(self, payload, root)

@@ -10,8 +10,8 @@ from prompt_toolkit.mouse_events import MouseEvent, MouseEventType
 class _HistoryControl(UIControl):
     """Colored, scrollable content area.
 
-    scroll_offset=0  → cursor at last line (auto-follow)
-    scroll_offset>0  → user scrolled up (cursor above last line)
+    scroll_offset=0  -> cursor at last line (auto-follow)
+    scroll_offset>0  -> user scrolled up (cursor above last line)
     """
 
     def __init__(self, app: "WorkflowListApp") -> None:  # type: ignore[name-defined]
@@ -119,12 +119,28 @@ class _CheckControl(UIControl):
         def get_line(i: int) -> list:
             return _d[i] if 0 <= i < len(_d) else []
 
+        offset = self._app._check_scroll
+        cursor_y = max(0, n - 1 - offset)
         return UIContent(
             get_line=get_line,
             line_count=max(1, n),
-            cursor_position=None,
+            cursor_position=Point(x=0, y=cursor_y),
             show_cursor=False,
         )
 
     def is_focusable(self) -> bool:
         return False
+
+    def mouse_handler(self, mouse_event: MouseEvent):
+        n = len(self._app._check_lines)
+        if mouse_event.event_type == MouseEventType.SCROLL_UP:
+            self._app._check_scroll = min(self._app._check_scroll + 3, max(0, n - 1))
+            if self._app._app:
+                self._app._app.invalidate()
+            return None
+        if mouse_event.event_type == MouseEventType.SCROLL_DOWN:
+            self._app._check_scroll = max(0, self._app._check_scroll - 3)
+            if self._app._app:
+                self._app._app.invalidate()
+            return None
+        return NotImplemented

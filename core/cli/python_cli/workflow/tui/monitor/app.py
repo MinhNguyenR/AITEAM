@@ -1,4 +1,4 @@
-"""WorkflowListApp — assembles all mixins into the runnable TUI."""
+"""WorkflowListApp -- assembles all mixins into the runnable TUI."""
 from __future__ import annotations
 
 import asyncio
@@ -32,11 +32,11 @@ class WorkflowListApp(
 
     Layout:
       hint bar  (1 line)
-      ─────────────────
+      -----------------
       content   (scrollable history + live step)
-      ─────────────────
+      -----------------
       hints bar (1 line)
-      ▸ input   (1 line)
+      -> input   (1 line)
     """
 
     def __init__(self) -> None:
@@ -58,6 +58,7 @@ class WorkflowListApp(
         # Inline mode flags
         self._post_delete_mode:  bool           = False
         self._exit_confirm_mode: bool           = False
+        self._last_ctrl_c_ts:    float          = 0.0
         self._task_mode_pending: Optional[str]  = None
         self._last_task_text:    str            = ""
         self._attempt_count:     int            = 1
@@ -101,7 +102,15 @@ class WorkflowListApp(
         self._curator_started_at:  float = 0.0
         self._curator_detail:      str   = ""
 
-        # Previous completed step display (ANSI) — prepended to live section
+        # Ambassador substate tracking ("" | reading | thinking | writing)
+        self._ambassador_substate: str = ""
+        self._ambassador_detail:   str = ""
+
+        # Leader session substate from leader.py explicit calls
+        self._leader_session_substate: str = ""
+        self._leader_session_detail:   str = ""
+
+        # Previous completed step display (ANSI) -- prepended to live section
         self._prev_step_display: str = ""
 
         # Reasoning/thinking stream
@@ -111,17 +120,21 @@ class WorkflowListApp(
         # Cached line count for fast mouse scroll
         self._cached_display_count: int = 0
 
-        self._cmd_q:        queue.Queue         = queue.Queue()
-        self._app:          Optional[Application] = None
-        self._main_buffer:  Optional[Buffer]    = None
-        self._check_buffer: Optional[Buffer]    = None
+        self._cmd_q:           queue.Queue           = queue.Queue()
+        self._app:             Optional[Application] = None
+        self._main_buffer:     Optional[Buffer]      = None
+        self._check_buffer:    Optional[Buffer]      = None
 
         # Command palette popup
         self._autocomplete_active: bool = False
         self._autocomplete_items:  list = []
         self._gate_pending:        bool = False
+        self._paste_collapse_used: bool = False
+        self._pasted_payload:      str  = ""
+        self._pasted_placeholder:  str  = ""
+        self._queued_tasks:        list[tuple[str, str]] = []
 
-    # ── async tick ────────────────────────────────────────────────────────────
+    # -- async tick ------------------------------------------------------------
 
     async def _tick_loop(self) -> None:
         from ...runtime import session as ws
@@ -139,17 +152,18 @@ class WorkflowListApp(
                         from ..core._utils import _r2a
                         ctx = find_context_md(_project_root_default())
                         if ctx and ctx.exists():
-                            lines_raw = [_r2a(f"[bold]── context.md ──[/bold]  [dim]{ctx}[/dim]")]
-                            for line in ctx.read_text(encoding="utf-8").splitlines():
+                            lines_raw = [_r2a(f"[bold]-- context.md --[/bold]  [dim]{ctx}[/dim]")]
+                            from core.cli.python_cli.shell.safe_read import safe_read_text
+                            for line in safe_read_text(ctx).splitlines():
                                 safe = line.replace("[", r"\[")
                                 lines_raw.append(_r2a(safe))
-                            
-                            accept_label = t('context.accept_desc').split(' — ')[0].lower()
-                            delete_label = t('context.delete_desc').split(' — ')[0].lower()
-                            edit_label   = t('context.edit_desc').split(' — ')[0].lower()
+
+                            accept_label = t('context.accept_desc').split(' -- ')[0].lower()
+                            delete_label = t('context.delete_desc').split(' -- ')[0].lower()
+                            edit_label   = t('context.edit_desc').split(' -- ')[0].lower()
                             back_label   = t('nav.back').split(' ')[0]
-                            
-                            lines_raw.append(_r2a(f"[dim]{accept_label}  ·  {delete_label}  ·  {edit_label}  ·  q {back_label}[/dim]"))
+
+                            lines_raw.append(_r2a(f"[dim]{accept_label}  .  {delete_label}  .  {edit_label}  .  q {back_label}[/dim]"))
                             self._check_lines = lines_raw
                     except Exception:
                         pass
@@ -157,7 +171,7 @@ class WorkflowListApp(
                 # Auto-select clarification after 30s of no response
                 if (self._clarif_mode
                         and hasattr(self, "_clarif_start")
-                        and (time.time() - self._clarif_start) > 30):
+                        and (time.time() - self._clarif_start) > 360):
                     _ac       = self._clarif_data
                     _opts     = _ac.get("options", [])
                     _auto_ans = f"{t('clarify.option')} 1: {_opts[0]}" if _opts else "__skip__"
@@ -167,8 +181,8 @@ class WorkflowListApp(
                     self._set_live("")
                     _ans_d = t("btw.skipped") if _auto_ans == "__skip__" else _auto_ans[:60]
                     self._write(
-                        f"[bold blue]●[/bold blue] [bold]{t('pipeline.leader')}[/bold]  [dim]\"{_cq[:60]}\"[/dim]"
-                        f"  [dim]→  {_ans_d}[/dim] [green]✓[/green]"
+                        f"[bold blue]*[/bold blue] [bold]{t('pipeline.leader')}[/bold]  [dim]\"{_cq[:60]}\"[/dim]"
+                        f"  [dim]->  {_ans_d}[/dim] [green]OK[/green]"
                     )
                     self._write(f"[dim]{t('clarify.auto_skip')}[/dim]")
                     try:
@@ -176,7 +190,7 @@ class WorkflowListApp(
                     except Exception:
                         pass
 
-                # Drain command queue — each command is isolated so one failure won't kill the loop
+                # Drain command queue -- each command is isolated so one failure won't kill the loop
                 while not self._cmd_q.empty():
                     try:
                         raw = self._cmd_q.get_nowait()
@@ -189,7 +203,7 @@ class WorkflowListApp(
                             self._handle_cmd(raw)
                     except Exception as _cmd_exc:
                         try:
-                            self._write(f"[bold red]✗ {t('ui.error')} {t('ui.choice').lower()}:[/bold red] {_cmd_exc}")
+                            self._write(f"[bold red]ERR {t('ui.error')} {t('ui.choice').lower()}:[/bold red] {_cmd_exc}")
                         except Exception:
                             pass
 
@@ -204,13 +218,13 @@ class WorkflowListApp(
                         and self._gate_state == _GATE_WAITING):
                     if snap.get("graph_failed"):
                         self._write("")
-                        self._write(f"[bold red]✗[/bold red] [bold]{t('pipeline.failed')}[/bold] — {time.strftime('%H:%M:%S')}")
+                        self._write(f"[bold red]ERR[/bold red] [bold]{t('pipeline.failed')}[/bold] -- {time.strftime('%H:%M:%S')}")
                         err_msg = snap.get("status_message") or ""
                         # These are markers, but we should also check localized versions if they were pushed to status
                         _ok_msgs = {
-                            "Dang chay LangGraph pipeline...", 
-                            "Ambassador parsing task…", 
-                            "Pipeline hoan tat", 
+                            "Dang chay LangGraph pipeline...",
+                            "Ambassador parsing task...",
+                            "Pipeline hoan tat",
                             "Currently running LangGraph pipeline...",
                             "Pipeline complete",
                             t("pipeline.complete"),
@@ -223,7 +237,7 @@ class WorkflowListApp(
                         self._set_live("")
                         self._scroll_offset = 0
                     elif ws.get_pipeline_redirect() == "ask":
-                        # Ambassador redirected to ask — do NOT print Pipeline complete
+                        # Ambassador redirected to ask -- do NOT print Pipeline complete
                         ws.set_pipeline_redirect(None)
                         self._write(f"[dim]  {t('pipeline.ask_redirect')}[/dim]")
                         self._set_live("")
@@ -237,11 +251,16 @@ class WorkflowListApp(
                         ws.reset_pipeline_visual()
                     except Exception:
                         pass
+                    try:
+                        from .helpers import _project_root_default
+                        self._start_next_queued_task(_project_root_default())
+                    except Exception:
+                        pass
 
             except Exception:
                 pass
 
-            # Always refresh display — isolated so body errors can't skip it
+            # Always refresh display -- isolated so body errors can't skip it
             try:
                 self._refresh()
                 if self._app:
@@ -259,7 +278,7 @@ class WorkflowListApp(
                     except Exception:
                         pass
 
-    # ── entry point ───────────────────────────────────────────────────────────
+    # -- entry point -----------------------------------------------------------
 
     def run(self) -> None:
         from ...runtime import session as ws
@@ -286,6 +305,13 @@ class WorkflowListApp(
         if _amb_init == "done":
             self._ambassador_done_written = True
             self._completed_nodes.add("ambassador")
+
+        if _is_live:
+            self._seen_running = True
+            self._set_live(
+                f"[bold yellow]*[/bold yellow] [dim]{t('pipeline.reconnecting')} -- [bold]{_active_now.replace('_', ' ')}[/bold][/dim]"
+            )
+
         self._app = self._build_app()
 
         async def _main():

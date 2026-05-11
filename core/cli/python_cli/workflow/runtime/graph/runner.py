@@ -1,6 +1,8 @@
 """LangGraph workflow runner: stream, resume, rewind; Rich Live when inline_progress."""
 
+
 from __future__ import annotations
+
 
 import logging
 import subprocess
@@ -9,7 +11,9 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import Literal
 
+
 from rich.live import Live
+
 
 from core.bootstrap import REPO_ROOT
 from core.app_state.actions import log_system_action
@@ -18,6 +22,7 @@ from core.cli.python_cli.ui.ui import console
 from core.domain.routing_map import pipeline_nodes_for_tier
 from core.orchestration import get_graph
 from utils.logger import artifact_detail, workflow_event
+
 
 from ..persist.activity_log import list_recent_activity
 from ..persist.checkpointer import get_checkpointer
@@ -32,10 +37,14 @@ from .runner_rewind import (
 )
 from .runner_resume import resume_workflow
 
+
 logger = logging.getLogger(__name__)
 AI_TEAM_ROOT = REPO_ROOT
 
+
 RunOutcome = Literal["paused", "completed", "failed"]
+
+
 
 
 def spawn_workflow_monitor(view_mode: str = "chain") -> bool:
@@ -53,6 +62,8 @@ def spawn_workflow_monitor(view_mode: str = "chain") -> bool:
     return True
 
 
+
+
 def run_agent_graph(
     brief,
     prompt: str,
@@ -65,15 +76,18 @@ def run_agent_graph(
     ws.set_workflow_project_root(project_root)
     ws.clear_leader_stream_buffer()
     tier = str(getattr(brief, "tier", "MEDIUM") or "MEDIUM")
-    nodes = pipeline_nodes_for_tier(tier)
+    fast_path = ((getattr(brief, "parameters", {}) or {}).get("fast_path") if hasattr(brief, "parameters") else None)
+    nodes = ["restore_worker", "finalize_phase1"] if fast_path == "restore" else pipeline_nodes_for_tier(tier)
     ws.set_workflow_list_nodes_state(
         [{"node": n, "status": "pending", "detail": "", "updated_at": 0.0} for n in nodes]
     )
-    ws.update_workflow_node_status("ambassador", "complete", f"tier={tier}")
+    if fast_path != "restore":
+        ws.update_workflow_node_status("ambassador", "complete", f"tier={tier}")
     workflow_event("runner", "graph_start", f"project_root={project_root}")
     ws.set_pipeline_status_message("Dang chay LangGraph pipeline...")
     ws.set_phase_running()
     ws.set_context_accept_status("none")
+
 
     tid = ws.new_thread_id()
     auto = bool(settings.get("auto_accept_context"))
@@ -81,6 +95,7 @@ def run_agent_graph(
     ws.set_interrupt_before(list(ib))
     ws.set_should_finalize(auto)
     ws.transition_pipeline_begin_run()
+
 
     cp = get_checkpointer()
     graph = get_graph(cp, interrupt_before=ib)
@@ -92,13 +107,16 @@ def run_agent_graph(
         "brief_dict": brief.model_dump(),
     }
 
+
     ws.set_paused_for_review(False)
     ws.set_last_node(None)
     ws.touch_pipeline_busy()
 
-    first_real_node = "leader_generate"
+
+    first_real_node = "restore_worker" if fast_path == "restore" else "leader_generate"
     ws.set_pipeline_active_step(first_real_node)
     ws.update_workflow_node_status(first_real_node, "running", "starting")
+
 
     ui_style = "list"
     with ExitStack() as stack:
@@ -117,7 +135,7 @@ def run_agent_graph(
             for event in graph.stream(init, config):
                 # Check if TUI requested a stop (exit & cleanup)
                 if ws.is_pipeline_stop_requested():
-                    logger.info("Pipeline stop requested — breaking stream loop")
+                    logger.info("Pipeline stop requested -- breaking stream loop")
                     ws.set_pipeline_graph_failed(False)
                     ws.reset_pipeline_visual()
                     return "failed"
@@ -141,7 +159,7 @@ def run_agent_graph(
                     ws.update_workflow_node_status(name, "complete", "done")
                     workflow_event(name, "node_complete", "done")
                     ws.set_pipeline_status_message(f"Da chay xong node: {name}")
-                    ws.set_pipeline_toast(f"Đã chạy xong: {name}", seconds=3.0)
+                    ws.set_pipeline_toast(f"Da chay xong: {name}", seconds=3.0)
                     current_nodes = ws.get_workflow_list_nodes_state()
                     node_order = [str(item.get("node", "")) for item in current_nodes]
                     try:
@@ -174,6 +192,7 @@ def run_agent_graph(
             ws.set_pipeline_status_message("Loi pipeline - xem log")
             return "failed"
 
+
         snap = graph.get_state(config)
         vals = (snap.values or {}) if snap else {}
         ctx = vals.get("context_path")
@@ -192,6 +211,7 @@ def run_agent_graph(
             ws.transition_pipeline_pause_at_gate()
             ws.set_phase_paused_gate()
             ws.set_context_accept_status("pending")
+            ws.set_pipeline_active_step("human_context_gate")
             ws.update_workflow_node_status("human_context_gate", "running", "paused for review")
             log_system_action("workflow.graph", "outcome=paused")
             workflow_event(
@@ -201,6 +221,7 @@ def run_agent_graph(
             )
             ws.set_pipeline_status_message("Cho review human_context_gate")
             return "paused"
+
 
         if vals.get("leader_failed") or (not ctx and tier != "LOW"):
             ws.set_pipeline_graph_failed(True)
@@ -223,6 +244,7 @@ def run_agent_graph(
                 )
             return "failed"
 
+
         ws.transition_pipeline_finish(failed=False)
         ws.set_pipeline_stop_phase("idle")
         ws.update_workflow_node_status("finalize_phase1", "complete", "pipeline completed")
@@ -233,6 +255,8 @@ def run_agent_graph(
             workflow_event("runner", "outcome_completed", "status=done")
         ws.set_pipeline_status_message("Pipeline hoan tat")
         return "completed"
+
+
 
 
 __all__ = [

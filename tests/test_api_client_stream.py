@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agents._api_client import APIClient
-from agents._budget_manager import BudgetManager
+from agents.support._api_client import APIClient
+from agents.support._budget_manager import BudgetManager
 from agents.base_agent import BudgetExceeded
 
 
@@ -56,7 +56,7 @@ class TestCallApiStreamBudgetExceeded:
     def test_budget_exceeded_returns_paused(self):
         from utils.budget_guard import DashboardBudgetExceeded
         c = _make_client()
-        with patch("agents._api_client.ensure_dashboard_budget_available",
+        with patch("agents.support._api_client.ensure_dashboard_budget_available",
                    side_effect=DashboardBudgetExceeded("exceeded")):
             result = c.call_api_stream(
                 "hello", model="test", max_tokens=512, temperature=0.5,
@@ -78,8 +78,8 @@ class TestCallApiStreamSuccess:
     def test_success_returns_content(self):
         c = _make_client()
         chunks = self._make_chunks(["Hello ", "world"])
-        with patch("agents._api_client.ensure_dashboard_budget_available"), \
-             patch("agents._api_client.chat_completions_create_stream", return_value=chunks), \
+        with patch("agents.support._api_client.ensure_dashboard_budget_available"), \
+             patch("agents.support._api_client.chat_completions_create_stream", return_value=chunks), \
              patch.object(c, "_compute_call_cost", return_value=0.001):
             result = c.call_api_stream(
                 "user prompt", model="test", max_tokens=512, temperature=0.5,
@@ -94,8 +94,8 @@ class TestCallApiStreamSuccess:
         callback = lambda delta: received.append(delta)
         c = _make_client(callback=callback)
         chunks = self._make_chunks(["chunk1", "chunk2"])
-        with patch("agents._api_client.ensure_dashboard_budget_available"), \
-             patch("agents._api_client.chat_completions_create_stream", return_value=chunks), \
+        with patch("agents.support._api_client.ensure_dashboard_budget_available"), \
+             patch("agents.support._api_client.chat_completions_create_stream", return_value=chunks), \
              patch.object(c, "_compute_call_cost", return_value=0.001):
             result = c.call_api_stream(
                 "prompt", model="test", max_tokens=512, temperature=0.5,
@@ -111,9 +111,9 @@ class TestCallApiStreamSuccess:
         def make_empty(*a, **kw):
             return iter([])
 
-        with patch("agents._api_client.ensure_dashboard_budget_available"), \
-             patch("agents._api_client.chat_completions_create_stream", side_effect=make_empty), \
-             patch("agents._api_client.time.sleep"):
+        with patch("agents.support._api_client.ensure_dashboard_budget_available"), \
+             patch("agents.support._api_client.chat_completions_create_stream", side_effect=make_empty), \
+             patch("agents.support._api_client.time.sleep"):
             with pytest.raises((ValueError, RuntimeError)):
                 c.call_api_stream(
                     "prompt", model="test", max_tokens=512, temperature=0.5,
@@ -136,9 +136,9 @@ class TestCallApiStreamSuccess:
                 )
             ])
 
-        with patch("agents._api_client.ensure_dashboard_budget_available"), \
-             patch("agents._api_client.chat_completions_create_stream", side_effect=make_rate_limit), \
-             patch("agents._api_client.time.sleep"), \
+        with patch("agents.support._api_client.ensure_dashboard_budget_available"), \
+             patch("agents.support._api_client.chat_completions_create_stream", side_effect=make_rate_limit), \
+             patch("agents.support._api_client.time.sleep"), \
              patch.object(c, "_compute_call_cost", return_value=0.001):
             result = c.call_api_stream(
                 "prompt", model="test", max_tokens=512, temperature=0.5,
@@ -157,7 +157,7 @@ class TestAggregateStreamWithUsageChunks:
                 usage=usage,
             )
         ]
-        content, prompt_tok, completion_tok = c._aggregate_stream(iter(chunks))
+        content, prompt_tok, completion_tok, *_ = c._aggregate_stream(iter(chunks))
         assert content == "text"
         assert prompt_tok == 100
         assert completion_tok == 50
@@ -170,7 +170,7 @@ class TestAggregateStreamWithUsageChunks:
                 usage=None,
             )
         ]
-        content, prompt_tok, completion_tok = c._aggregate_stream(iter(chunks))
+        content, prompt_tok, completion_tok, *_ = c._aggregate_stream(iter(chunks))
         assert content == "hello"
         assert prompt_tok == 0
 
@@ -185,7 +185,7 @@ class TestAggregateStreamWithUsageChunks:
                 usage=None,
             )
         ]
-        content, _, _ = c._aggregate_stream(iter(chunks))
+        content, *_ = c._aggregate_stream(iter(chunks))
         assert content == "text"  # must not raise
 
     def test_no_session_session_lookuperror_fallback(self):
@@ -200,7 +200,7 @@ class TestAggregateStreamWithUsageChunks:
         mock_ws = MagicMock()
         mock_ws.append_leader_stream_chunk = MagicMock(side_effect=LookupError("no monitor"))
         with patch.dict(sys.modules, {"core.cli.python_cli.workflow.runtime.session": mock_ws}):
-            content, _, _ = c._aggregate_stream(iter(chunks))
+            content, *_ = c._aggregate_stream(iter(chunks))
         assert content == "data"  # LookupError should be caught, not raised
 
 

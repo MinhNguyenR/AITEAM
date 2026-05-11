@@ -8,6 +8,28 @@ from ._constants import _GATE_WAITING, _GATE_REGEN, _SPINNER
 
 
 class _TasksMixin:
+    def _queue_task(self, task_text: str, task_mode: str) -> None:
+        self._queued_tasks.append((task_text, task_mode))
+        idx = len(self._queued_tasks)
+        preview = " ".join(str(task_text or "").split())
+        if len(preview) > 96:
+            preview = preview[:93] + "..."
+        self._write("")
+        self._write(f"[bold yellow]QUEUE[/bold yellow] [bold]Task #{idx}[/bold]  [dim]{time.strftime('%H:%M:%S')}[/dim]")
+        self._write(f"[on #2a2a2a]  {preview}  [/on #2a2a2a]")
+        self._scroll_offset = 0
+        if self._app:
+            self._app.invalidate()
+
+    def _start_next_queued_task(self, root: str) -> bool:
+        if not self._queued_tasks:
+            return False
+        task_text, task_mode = self._queued_tasks.pop(0)
+        remaining = len(self._queued_tasks)
+        self._write("")
+        self._write(f"[bold yellow]QUEUE[/bold yellow] [bold]Starting next task[/bold]  [dim]{remaining} queued[/dim]")
+        self._do_new_task(task_text, task_mode, root)
+        return True
 
     def _do_new_task(self, task_text: str, task_mode: str, root: str) -> None:
         from ....runtime import session as ws
@@ -25,7 +47,7 @@ class _TasksMixin:
             return
 
         self._write("")
-        self._write(f"[bold cyan]●[/bold cyan] [bold]Task[/bold]  [dim]{time.strftime('%H:%M:%S')}[/dim]")
+        self._write(f"[bold cyan]*[/bold cyan] [bold]Task[/bold]  [dim]{time.strftime('%H:%M:%S')}[/dim]")
         _tw, _tc, _tls = task_text.split(), "", []
         for _w in _tw:
             if len(_tc) + len(_w) + 1 > 100:
@@ -52,13 +74,13 @@ class _TasksMixin:
         self._pipeline_pending = True
 
     def _start_decline_countdown(self) -> None:
-        self._write("[dim]  Clearing in 3…[/dim]")
+        self._write("[dim]  Clearing in 3...[/dim]")
 
         def _run() -> None:
             for r in (2, 1, 0):
                 time.sleep(1.0)
                 def _upd(r=r):
-                    self._write(f"[dim]  Clearing in {r}…[/dim]")
+                    self._write(f"[dim]  Clearing in {r}...[/dim]")
                     if self._app: self._app.invalidate()
                 self._safe_ui(_upd)
 
@@ -88,13 +110,13 @@ class _TasksMixin:
     def _ask_exit_inline(self) -> None:
         self._exit_confirm_mode = True
         self._write("")
-        self._write("[bold yellow]⚠[/bold yellow] Workflow running — Exit & cleanup? [bold](y/n)[/bold]")
+        self._write("[bold yellow]![/bold yellow] Workflow running -- Exit & cleanup? [bold](y/n)[/bold]")
         self._scroll_offset = 0
 
     def _do_cleanup_exit(self) -> None:
         from ....runtime import session as ws
         from ..helpers import _project_root_default
-        self._write("[dim]  Stopping pipeline…[/dim]")
+        self._write("[dim]  Stopping pipeline...[/dim]")
         try:
             ws.request_pipeline_stop()
         except Exception:

@@ -1,4 +1,4 @@
-"""Pure orchestration services for workflow artifacts."""
+﻿"""Pure orchestration services for workflow artifacts."""
 
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def leader_generate_context(
         "LEADER_MEDIUM": LeaderMed,
         "LEADER_HIGH": LeaderHigh,
     }
-    registry_key = pipeline_registry_key_for_tier(brief.tier)
+    registry_key = (getattr(brief, "selected_leader", "") or pipeline_registry_key_for_tier(brief.tier)).upper()
     leader_class = by_key.get(registry_key, LeaderMed)
     leader = leader_class(budget_limit_usd=5.0)
     state_path = paths_for_task(brief.task_uuid).state_path
@@ -94,8 +94,42 @@ def tool_curator_generate_tools(
     return Path(tools_path)
 
 
+def worker_execute_task(
+    context_path: str | Path,
+    tools_path: str | Path | None = None,
+    project_root: str | None = None,
+    worker_key: str = "WORKER_A",
+    task_uuid: str = "",
+    assignment_text: str = "",
+    allowed_paths: list[str] | None = None,
+) -> dict:
+    from agents.worker import Worker
+    worker = Worker(worker_key=worker_key, budget_limit_usd=3.0)
+    return worker.execute_task(
+        context_path,
+        tools_path,
+        project_root,
+        task_uuid,
+        assignment_text=assignment_text,
+        allowed_paths=allowed_paths,
+    )
+
+
+def secretary_execute_commands(
+    context_path: str | Path,
+    tools_path: str | Path | None = None,
+    project_root: str | None = None,
+    commands: list[str] | None = None,
+) -> dict:
+    from agents.secretary import Secretary
+    sec = Secretary(budget_limit_usd=1.0)
+    return sec.execute_commands(context_path, tools_path, project_root, commands=commands)
+
+
 __all__ = [
     "write_task_state_json",
     "leader_generate_context",
     "tool_curator_generate_tools",
+    "worker_execute_task",
+    "secretary_execute_commands",
 ]

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from .tracker_aggregate import (
+    aggregate_role_detail,
     aggregate_rows_by_role_model,
     aggregate_usage_by_role,
     build_usage_summary,
@@ -40,6 +41,7 @@ __all__ = [
     "read_usage_log",
     "parse_usage_timestamp",
     "read_usage_rows_timerange",
+    "aggregate_role_detail",
     "aggregate_rows_by_role_model",
     "search_model_substring",
     "token_io_totals",

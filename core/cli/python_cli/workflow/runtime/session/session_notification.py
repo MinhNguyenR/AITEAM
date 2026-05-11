@@ -107,7 +107,7 @@ def push_pipeline_notification(
     try:
         short = str(title)[:180]
         if str(body or "").strip():
-            short = f"{short} — {(str(body) or '')[:120]}"
+            short = f"{short} -- {(str(body) or '')[:120]}"
         set_pipeline_toast(short, seconds=3.0)
     except OSError:
         pass

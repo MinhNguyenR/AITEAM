@@ -86,83 +86,116 @@ def _pick_chat_on_ask_entry(store: dict, force_new_chat: bool = False) -> Option
         ask_history.create_chat(store, new_name, mode="standard")
         log_system_action("ask.chat.create", new_name)
         return None
+
+    page = 0
+    page_size = 18
+
     while True:
-        clear_screen()
         chats = ask_history.list_chat_records(store, sort_by="updated_desc")
         if not chats:
             new_name = _new_chat_name()
             ask_history.create_chat(store, new_name, mode="standard")
             log_system_action("ask.chat.create", new_name)
             return None
-        table = Table(title=t("ask.chat_list_title"), box=ROUNDED, border_style=PASTEL_BLUE, expand=True)
+
+        total_pages = (len(chats) + page_size - 1) // page_size
+        page = max(0, min(page, total_pages - 1))
+
+        start_idx = page * page_size
+        end_idx = min(start_idx + page_size, len(chats))
+        page_chats = chats[start_idx:end_idx]
+
+        # Capture the UI to ANSI so we can push palette to bottom
+        import shutil
+        from io import StringIO
+        from rich.console import Console as RichConsole
+        from core.cli.python_cli.ui.ui import PASTEL_CYAN
+
+        width = shutil.get_terminal_size((120, 30)).columns
+        sio = StringIO()
+        cap = RichConsole(file=sio, force_terminal=True, width=width, no_color=False, highlight=False, markup=True)
+
+        title = f"{t('ask.chat_list_title')} [dim]({page+1}/{total_pages})[/dim]"
+        table = Table(title=title, box=ROUNDED, border_style=PASTEL_BLUE, expand=True)
         table.add_column(t("ask.chat_col"), style="white", no_wrap=False)
-        for idx, item in enumerate(chats, start=1):
+
+        for idx_in_page, item in enumerate(page_chats, start=start_idx + 1):
             updated = item.get("updated_at", "")[:16].replace("T", " ")
             table.add_row(
-                f"[bold cyan]{idx}.[/bold cyan] [bold]{item['name']}[/bold]  "
-                f"[dim]· {item.get('mode', 'standard')} · {t('ask.msg_count').format(n=item.get('message_count', 0))} · {updated}[/dim]"
+                f"[bold cyan]{idx_in_page}.[/bold cyan] [bold]{item['name']}[/bold]  "
+                f"[dim]. {item.get('mode', 'standard')} . {t('ask.msg_count').format(n=item.get('message_count', 0))} . {updated}[/dim]"
             )
-        console.print(table)
+        cap.print(table)
+        ansi_header = sio.getvalue()
+
         from core.cli.python_cli.ui.palette_app import ask_with_palette
-        raw = ask_with_palette(f"{t('ask.chat_prompt')} ", context="ask_chat", default="").strip()
+        # Removed prompt text for minimalist look
+        raw = ask_with_palette("", context="ask_chat",
+                               default="", header_ansi=ansi_header).strip()
         if not raw:
             continue
         lowered = raw.lower()
-        if lowered == "exit":
+        if lowered == "/exit":
             raise NavToMain
-        if lowered == "back":
+        if lowered == "/back":
             return "back"
-        if lowered in ("create", "new"):
+
+        if lowered == "/next":
+            if page < total_pages - 1:
+                page += 1
+            continue
+        if lowered == "/prev":
+            if page > 0:
+                page -= 1
+            continue
+
+        if lowered == "/create":
             new_name = _new_chat_name()
             ask_history.create_chat(store, new_name, mode="standard")
             log_system_action("ask.chat.create", new_name)
             return None
-        if lowered == "delete all":
+        if lowered == "/delete all":
             ask_history.delete_all_chats(store)
             log_system_action("ask.chat.delete_all", "1")
-            console.print(f"[green]{t('ask.all_deleted')}[/green]")
             continue
-        if lowered.startswith("delete "):
-            payload = raw[7:].strip()
+        if lowered.startswith("/delete "):
+            payload = raw.split(None, 1)[1] if " " in raw else ""
             if payload.lower() == "all":
                 ask_history.delete_all_chats(store)
                 log_system_action("ask.chat.delete_all", "1")
                 continue
             idxs = _parse_index_list(payload, len(chats))
             if not idxs:
-                console.print(f"[yellow]{t('ask.invalid_idx_range')}[/yellow]")
-                from core.cli.python_cli.shell.prompt import wait_enter as _we
-                _we(t("ui.wait_enter"))
                 continue
             names = [chats[i - 1]["name"] for i in idxs]
             num_deleted = ask_history.delete_chats_bulk(store, names)
             log_system_action("ask.chat.delete_bulk", str(num_deleted))
-            console.print(f"[dim]{t('ask.chats_deleted').format(n=num_deleted)}[/dim]")
             continue
-        if lowered.startswith("rename ") and len(raw.split()) >= 3:
+        if lowered.startswith("/rename ") and len(raw.split()) >= 3:
             parts = raw.split(None, 2)
             old_tok, new_name = parts[1], parts[2].strip()
             old_name = _resolve_chat_name(old_tok, chats)
             if old_name and ask_history.rename_chat(store, old_name, new_name):
                 log_system_action("ask.chat.rename", f"{old_name}->{new_name}")
-            else:
-                console.print(f"[yellow]{t('ask.rename_failed')}[/yellow]")
             continue
-        if raw.isdigit():
-            pos = int(raw)
-            if 1 <= pos <= len(chats):
-                name = chats[pos - 1]["name"]
-                ask_history.join_chat(store, name)
-                log_system_action("ask.chat.join", name)
-                return None
-            console.print(f"[yellow]{t('ask.invalid_chat_idx')}[/yellow]")
+
+        if lowered.startswith("/open "):
+            payload = raw.split(None, 1)[1] if " " in raw else ""
+            if payload.isdigit():
+                pos = int(payload)
+                if 1 <= pos <= len(chats):
+                    name = chats[pos - 1]["name"]
+                    ask_history.join_chat(store, name)
+                    log_system_action("ask.chat.join", name)
+                    return None
             continue
+
+        # Exact name match still allowed
         for c in chats:
             if c["name"] == raw or str(c["name"]).lower() == lowered:
                 ask_history.join_chat(store, c["name"])
                 log_system_action("ask.chat.join", c["name"])
                 return None
-        console.print(f"[yellow]{t('nav.invalid_choice')}[/yellow]")
 
 
 __all__ = ["_pick_chat_on_ask_entry"]

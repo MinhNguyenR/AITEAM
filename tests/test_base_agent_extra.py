@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agents.base_agent import BaseAgent, BudgetExceeded
-from agents._budget_manager import BudgetManager
+from agents.support._budget_manager import BudgetManager
 
 
 # ---------------------------------------------------------------------------

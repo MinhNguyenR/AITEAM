@@ -1,7 +1,7 @@
 """Shared logic for inline /btw streaming in workflow TUIs (list_view + monitor_app).
 
 Resolves leader model from registry, opens OpenRouter stream, yields text chunks.
-Caller drives all rendering — this module is render-agnostic.
+Caller drives all rendering -- this module is render-agnostic.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ def stream_btw_response(
 
     Caller handles all rendering. Raises on fatal errors (network, auth, etc).
     """
-    from agents._api_client import make_openai_client
+    from agents.support._api_client import make_openai_client
     from core.config import config as _cfg
     from core.config.settings import openrouter_base_url
 

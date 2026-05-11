@@ -1,5 +1,5 @@
 """
-change_flow — facade re-export (implementation in core.cli.python_cli.features.change).
+change_flow -- facade re-export (implementation in core.cli.python_cli.features.change).
 """
 
 from __future__ import annotations

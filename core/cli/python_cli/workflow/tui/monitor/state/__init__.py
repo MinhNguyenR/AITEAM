@@ -1,7 +1,7 @@
 """Workflow live-display state renderers.
 
 Each sub-module handles one workflow actor / lifecycle phase.
-All functions return Rich markup strings — no side effects.
+All functions return Rich markup strings -- no side effects.
 """
 from __future__ import annotations
 
@@ -9,6 +9,9 @@ from ._ambassador import render_running as render_ambassador_running
 from ._ambassador import render_done    as render_ambassador_done
 from ._leader     import render_regen_starting as render_leader_regen_starting
 from ._tool_curator import render_curator_tree, render_curator_done
+from ._worker     import render_worker_tree, render_worker_done
+from ._secretary  import render_secretary_tree, render_secretary_done
+from ._explainer  import render_explainer_tree, render_explainer_done
 from ._gate       import render_waiting     as render_gate_waiting
 from ._gate       import render_checking    as render_gate_checking
 from ._gate       import render_editing     as render_gate_editing
@@ -27,6 +30,9 @@ __all__ = [
     "render_ambassador_running", "render_ambassador_done",
     "render_leader_regen_starting",
     "render_curator_tree", "render_curator_done",
+    "render_worker_tree", "render_worker_done",
+    "render_secretary_tree", "render_secretary_done",
+    "render_explainer_tree", "render_explainer_done",
     "render_gate_waiting", "render_gate_checking", "render_gate_editing",
     "render_gate_accepted", "render_gate_declined",
     "render_clarify_pending",

@@ -12,6 +12,7 @@ from textual.widgets import Button, Input, RichLog, Static
 
 from core.cli.python_cli.features.context.flow import find_context_md, is_no_context
 from core.cli.python_cli.shell.safe_editor import run_editor_on_file
+from core.cli.python_cli.shell.safe_read import safe_read_text
 from core.app_state import log_system_action
 from core.cli.python_cli.i18n import t
 
@@ -85,14 +86,14 @@ class ContextFilePreviewScreen(ModalScreen[None]):
             log.write(f"[red]{t('ui.file_not_found')}[/red]")
             return
         try:
-            text = p.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as e:
+            text = safe_read_text(p)
+        except OSError as e:
             log.write(f"[red]{e}[/red]")
             return
         lines = text.splitlines()
         head = "\n".join(lines[:150])
         if len(lines) > 150:
-            head += f"\n\n[dim]… {t('context.lines_hidden').format(n=len(lines)-150)}[/dim]"
+            head += f"\n\n[dim]... {t('context.lines_hidden').format(n=len(lines)-150)}[/dim]"
         log.write(head)
 
     def action_dismiss(self) -> None:
@@ -143,11 +144,11 @@ class ContextReviewScreen(ModalScreen[None]):
         with VerticalScroll():
             yield Static(id="ctx_md")
         yield Horizontal(
-            Button(t("context.accept_desc").split(" — ")[0], id="b_a", variant="success"),
-            Button(t("context.edit_desc").split(" — ")[0], id="b_e"),
-            Button(t("context.regen_desc").split(" — ")[0], id="b_r"),
+            Button(t("context.accept_desc").split(" -- ")[0], id="b_a", variant="success"),
+            Button(t("context.edit_desc").split(" -- ")[0], id="b_e"),
+            Button(t("context.regen_desc").split(" -- ")[0], id="b_r"),
             Button(t("nav.back").split(" ")[0].title(), id="b_b"),
-            Button(t("context.delete_desc").split(" — ")[0], id="b_d", variant="error"),
+            Button(t("context.delete_desc").split(" -- ")[0], id="b_d", variant="error"),
         )
 
     def on_mount(self) -> None:
@@ -163,7 +164,7 @@ class ContextReviewScreen(ModalScreen[None]):
             body.update("")
             return
         title.update(str(ctx))
-        content = ctx.read_text(encoding="utf-8")
+        content = safe_read_text(ctx)
         lines = content.splitlines()
         preview = "\n".join(lines[:120])
         if len(lines) > 120:
@@ -254,7 +255,7 @@ class ConfirmExitScreen(ModalScreen[bool]):
 
 
 class DeleteConfirmScreen(ModalScreen[str | None]):
-    """Push after context delete — lets user enter a new task inline before exiting."""
+    """Push after context delete -- lets user enter a new task inline before exiting."""
 
     BINDINGS = [Binding("escape", "cancel", t("del.no_regen"), show=False)]
 
@@ -278,7 +279,7 @@ class DeleteConfirmScreen(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="del_container"):
             yield Static(
-                f"[bold yellow]● {t('context.deleted')}[/bold yellow]\n"
+                f"[bold yellow]* {t('context.deleted')}[/bold yellow]\n"
                 f"[dim]{t('context.regen_title')}[/dim]"
             )
             yield Input(id="del_input", placeholder=t("context.regen_placeholder"))

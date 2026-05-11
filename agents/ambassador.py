@@ -1,21 +1,27 @@
-"""
+﻿"""
 Ambassador Agent - Phase 0
 ==========================
 Input Parser & Task Router for Multi-Agent System v6.2
-Author: Nguyễn Đặng Tường Minh
+Author: Nguyá»…n Äáº·ng TÆ°á»ng Minh
 Hardware Target: RTX 5080 (16GB VRAM)
 """
+
 
 import json
 import logging
 import re
 from typing import Optional, Dict, Any
 
+
 logger = logging.getLogger(__name__)
+
 
 from core.bootstrap import ensure_project_root
 
+
 ensure_project_root()
+
+
 
 
 from core.config import config
@@ -28,9 +34,22 @@ from utils.input_validator import validate_user_prompt
 from utils.json_utils import parse_json_resilient, strip_markdown_fences
 
 
+
+
+
+from .support._ambassador_classify import (
+    _extract_vram as _extract_vram_impl,
+    _detect_language as _detect_language_impl,
+    _classify_tier_fallback as _classify_tier_fallback_impl,
+    _apply_tier_upgrade_rules as _apply_tier_upgrade_rules_impl,
+    _is_restore_request as _is_restore_request_impl,
+)
+
+
 class Ambassador(BaseAgent):
     """
-    Phase 0 Agent: Parses user input → classifies tier → routes to appropriate agent.
+    Phase 0 Agent: Parses user input â†’ classifies tier â†’ routes to appropriate agent.
+
 
     Inherits from BaseAgent with:
     - OpenRouter API integration
@@ -39,12 +58,13 @@ class Ambassador(BaseAgent):
     - Session logging
     """
 
+
     def __init__(self, budget_limit_usd: Optional[float] = None):
         """Initialize Ambassador with its own registry model (gpt-5.4-nano)."""
         cfg = config.get_worker("AMBASSADOR")
         super().__init__(
             agent_name="Ambassador",
-            model_name=cfg["model"],        # openai/gpt-5.4-nano — NOT tier model
+            model_name=cfg["model"],        # openai/gpt-5.4-nano â€” NOT tier model
             system_prompt=AMBASSADOR_SYSTEM_PROMPT,
             max_tokens=cfg["max_tokens"],   # 300
             temperature=cfg["temperature"], # 0.1
@@ -53,93 +73,13 @@ class Ambassador(BaseAgent):
         )
         self.last_usage_event: Dict[str, Any] = {}
 
+
     # ----- lightweight helpers -----
 
-    @staticmethod
-    def _extract_vram(text: str) -> Optional[str]:
-        m = re.search(r"(\d+(?:\.\d+)?)\s*(GB|MB)", text, re.IGNORECASE)
-        return f"{m.group(1)}{m.group(2)}" if m else None
 
-    @staticmethod
-    def _detect_language(text: str) -> str:
-        patterns = {
-            "cuda": r"\b(cuda|__global__|__device__|threadIdx)\b",
-            "python": r"\b(python|def\s+\w+|import\s+\w+)\b",
-            "cpp": r"\b(c\+\+|cpp|#include|std::)\b",
-            "javascript": r"\b(const\s+\w+=|console\.log)\b",
-            "rust": r"\b(fn\s+\w+|let\s+mut)\b",
-        }
-        for lang, pat in patterns.items():
-            if re.search(pat, text, re.IGNORECASE):
-                return lang
-        return "natural"
-
-    @staticmethod
-    def _classify_tier_fallback(text: str) -> str:
-        """
-        Rule-based fallback classification (3 tiers).
-        Used when Ambassador API is unavailable (rate limit, timeout, etc).
-        Supports both English and Vietnamese keywords.
-        """
-        t = text.lower()
-
-        # HARD: CUDA, kernel, hardware-bound
-        hard_kw = (
-            "cuda", "kernel", "vram", "tensor core", "multi-gpu", "nccl", "nvlink",
-            "gpu computing", "parallel computing", "sm_90", "tensor cores",
-            "rtx", "low-level", "assembly", "write kernel", "memory bound",
-            "gpu memory", "warp", "threadidx", "blockidx", "__global__",
-        )
-        if any(kw in t for kw in hard_kw):
-            return "HARD"
-
-        # HARD: system architecture, complex multi-file design, or hardware-bound work
-        hard_design_kw = (
-            "architect", "kiến trúc sư", "system architect", "design the system",
-            "design system", "design architecture", "technical lead",
-            "tech lead", "platform design", "infrastructure design",
-            "scalability design", "high-level design", "hld",
-            "solution architect", "enterprise architecture",
-            "system design", "architecture", "distributed", "microservice",
-            "theorem", "proof", "numerical", "statistical",
-            "backpropagation", "loss function", "convergence",
-            "derive", "prove", "thiết kế hệ thống", "kiến trúc",
-            "multi-agent", "orchestrat", "pipeline phức",
-        )
-        if any(kw in t for kw in hard_design_kw):
-            return "HARD"
-
-        # MEDIUM: Feature implementation, AI/ML tasks, CRUD, web
-        medium_kw = (
-            # English
-            "write", "create", "implement", "build", "develop", "code",
-            "function", "class", "endpoint", "api", "database", "crud",
-            "fastapi", "flask", "django", "rest", "sql", "orm",
-            "train", "fine-tune", "finetune", "embedding", "vector",
-            "rag", "retrieval", "langchain", "llm", "chatbot", "agent",
-            "scrape", "parse", "pipeline", "workflow", "integration",
-            "machine learning", "deep learning", "neural", "transformer",
-            "attention", "gradient", "matrix", "tensor", "model",
-            # Vietnamese
-            "tạo", "viết", "xây dựng", "lập trình", "thiết kế",
-            "huấn luyện", "nhúng", "truy xuất", "mô hình",
-            "học máy", "mạng nơ-ron", "phân loại", "dự đoán",
-        )
-        if any(kw in t for kw in medium_kw):
-            return "MEDIUM"
-
-        # LOW: Q&A, explanation, concept
-        qa_kw = (
-            "what", "why", "how", "explain", "define", "meaning", "purpose",
-            "what is", "what are", "?",
-            "vì sao", "là gì", "như thế nào", "tại sao", "giải thích",
-            "khái niệm", "định nghĩa",
-        )
-        if any(kw in t for kw in qa_kw):
-            return "LOW"
-
-        # Default: MEDIUM (safer than LOW for ambiguous tasks)
-        return "MEDIUM"
+    _extract_vram = staticmethod(_extract_vram_impl)
+    _detect_language = staticmethod(_detect_language_impl)
+    _classify_tier_fallback = staticmethod(_classify_tier_fallback_impl)
 
     # ----- helpers -----
 
@@ -154,6 +94,7 @@ class Ambassador(BaseAgent):
             temperature=0.1,
             max_tokens=300,
             response_format={"type": "json_object"},
+            extra_headers={"X-OpenRouter-Cache": "true", "X-OpenRouter-Cache-TTL": "300"},
         )
         usage = getattr(resp, "usage", None)
         p_tok = int(getattr(usage, "prompt_tokens", 0) or 0)
@@ -183,14 +124,10 @@ class Ambassador(BaseAgent):
             raise ValueError("API returned empty content")
         return parse_json_resilient(strip_markdown_fences(content.strip()))
 
-    @staticmethod
-    def _apply_tier_upgrade_rules(tier: str, is_cuda: bool, complexity: float, is_hardware_bound: bool) -> str:
-        """Apply CUDA and complexity upgrade rules to the initial tier."""
-        if is_cuda:
-            return "HARD"
-        if complexity > 0.8:
-            return "HARD"
-        return tier
+
+    _apply_tier_upgrade_rules = staticmethod(_apply_tier_upgrade_rules_impl)
+    _is_restore_request = staticmethod(_is_restore_request_impl)
+
 
     def _build_delta_brief(
         self,
@@ -205,6 +142,9 @@ class Ambassador(BaseAgent):
         complexity = float(llm.get("complexity_score", 0.5))
         is_hw = bool(llm.get("is_hardware_bound", False))
         tier = self._apply_tier_upgrade_rules(tier, is_cuda, complexity, is_hw)
+        params = dict(llm.get("parameters", {}) or {})
+        if self._is_restore_request(user_input):
+            params["fast_path"] = "restore"
         return DeltaBrief(
             original_prompt=user_input,
             summary=llm.get("summary", user_input[:100]),
@@ -215,10 +155,11 @@ class Ambassador(BaseAgent):
             is_cuda_required=is_cuda,
             estimated_vram_usage=llm.get("estimated_vram_usage") or vram,
             is_hardware_bound=is_hw,
-            parameters=llm.get("parameters", {}),
+            parameters=params,
             language_detected=llm.get("language_detected", lang),
             complexity_score=complexity,
         )
+
 
     def _build_fallback_delta_brief(self, user_input: str, vram: Optional[float], lang: str) -> DeltaBrief:
         """Build a DeltaBrief using rule-based fallback (no API)."""
@@ -227,6 +168,7 @@ class Ambassador(BaseAgent):
         is_hw = bool(re.search(r"vram|memory|rtx|hardware", user_input, re.IGNORECASE))
         complexity = {"LOW": 0.3, "MEDIUM": 0.6, "HARD": 0.9}.get(tier, 0.5)
         tier = self._apply_tier_upgrade_rules(tier, is_cuda, complexity, is_hw)
+        params = {"fast_path": "restore"} if self._is_restore_request(user_input) else {}
         return DeltaBrief(
             original_prompt=user_input,
             summary=user_input[:100],
@@ -236,37 +178,52 @@ class Ambassador(BaseAgent):
             is_cuda_required=is_cuda,
             estimated_vram_usage=vram,
             is_hardware_bound=is_hw,
-            parameters={},
+            parameters=params,
             language_detected=lang,
             complexity_score=complexity,
         )
 
+
     # ----- core -----
 
+
     def parse(self, user_input: str) -> DeltaBrief:
-        """Parse user input → DeltaBrief with tier + model from config."""
+        """Parse user input â†’ DeltaBrief with tier + model from config."""
         user_input = validate_user_prompt(user_input)
         vram = self._extract_vram(user_input)
         lang = self._detect_language(user_input)
 
-        # Push initial line so TUI shows feedback during the API call
+
+        # Phase 1: Reading user input
         try:
             from core.runtime import session as _ws
+            _ws.set_ambassador_substate("reading", "User input")
             _ws.clear_leader_stream_buffer()
-            _ws.append_leader_stream_chunk(f"Analyzing: {user_input[:120]}…")
         except Exception:
             pass
+
+
+        # Phase 2: Thinking (LLM call)
+        try:
+            from core.runtime import session as _ws
+            _ws.set_ambassador_substate("thinking")
+            _ws.append_leader_stream_chunk(f"Analyzing: {user_input[:120]}â€¦")
+        except Exception:
+            pass
+
 
         try:
             llm = self._call_parse_api(user_input)
             brief = self._build_delta_brief(user_input, llm, vram, lang)
         except (OSError, RuntimeError, ValueError, TypeError, json.JSONDecodeError) as e:
-            logger.warning("[Ambassador] API error: %s — using fallback", e)
+            logger.warning("[Ambassador] API error: %s â€” using fallback", e)
             brief = self._build_fallback_delta_brief(user_input, vram, lang)
 
-        # Replace stream buffer with state.json summary after API completes
+
+        # Phase 3: Writing routing decision
         try:
             from core.runtime import session as _ws
+            _ws.set_ambassador_substate("writing", "state.json")
             _ws.clear_leader_stream_buffer()
             _lines = [
                 f"tier: {brief.tier}",
@@ -278,6 +235,7 @@ class Ambassador(BaseAgent):
             _ws.append_leader_stream_chunk("\n".join(_lines))
         except Exception:
             pass
+
 
         try:
             from utils.graphrag_utils import try_ingest_prompt_doc
@@ -292,8 +250,10 @@ class Ambassador(BaseAgent):
             logger.debug("[Ambassador] GraphRAG ingest skipped: %s", type(e).__name__)
         return brief
 
+
     def parse_to_dict(self, user_input: str) -> Dict[str, Any]:
         return self.parse(user_input).model_dump()
+
 
     @staticmethod
     def get_tier_info(tier: str) -> Dict[str, str]:
@@ -310,22 +270,27 @@ class Ambassador(BaseAgent):
         }
 
 
+
+
     def execute(self, task: str, **kwargs) -> str:
         """
         Main execution logic for Ambassador:
-        1. Parse user input → DeltaBrief (with 3-tier classification)
-        2. Apply auto-upgrade rules (CUDA or high complexity → HARD)
+        1. Parse user input â†’ DeltaBrief (with 3-tier classification)
+        2. Apply auto-upgrade rules (CUDA or high complexity â†’ HARD)
         3. Return JSON routing decision for orchestrator
         """
         # Parse input using existing parse() method
         brief = self.parse(task)
 
+
         # Get selected_leader from DeltaBrief (already computed in parse)
         selected_route = brief.selected_leader
 
+
         # Determine escalation (only for HARD tier)
         is_escalated = (brief.tier == "HARD")
-        
+
+
         # Build scope (file patterns from language detection)
         scope = []
         if brief.language_detected not in ("unknown", "natural"):
@@ -339,6 +304,7 @@ class Ambassador(BaseAgent):
             ext = ext_map.get(brief.language_detected, f".{brief.language_detected}")
             scope = [f"*{ext}"]
 
+
         # Build constraints from brief
         constraints = []
         if brief.is_cuda_required:
@@ -347,6 +313,7 @@ class Ambassador(BaseAgent):
             constraints.append(f"VRAM: {brief.estimated_vram_usage}")
         if brief.is_hardware_bound:
             constraints.append("Hardware-bound optimization")
+
 
         # Construct output JSON
         output = {
@@ -362,15 +329,18 @@ class Ambassador(BaseAgent):
             "next_step": "CREATE_CONTEXT_MD",
         }
 
+
         # Log action
         self.log_action(
             decision=f"Routed task to {selected_route} (tier: {brief.tier})",
             action="Ambassador routing completed",
             cost=self.session_cost,
         )
-        
+
+
         # Return JSON string
         return json.dumps(output, indent=2)
+
 
     def format_output(self, response: str) -> str:
         """
@@ -390,14 +360,18 @@ class Ambassador(BaseAgent):
             return cleaned
 
 
+
+
 # Quick test
 if __name__ == "__main__":
     from rich.console import Console
     from rich.panel import Panel
 
+
     console = Console()
     ambassador = Ambassador(budget_limit_usd=1.0)  # Test with $1 budget
-    console.print("[bold green]✓ Ambassador initialized[/bold green]")
+    console.print("[bold green]âœ“ Ambassador initialized[/bold green]")
+
 
     for test in [
         "Explain Python decorators",

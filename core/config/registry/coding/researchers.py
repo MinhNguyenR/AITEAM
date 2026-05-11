@@ -6,7 +6,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
     "GENERAL_RESEARCHER": {
         "model": "x-ai/grok-4.1-fast",
         "role": "Researcher",
-        "reason": "Tổng hợp thông tin đa nguồn, phân tích xu hướng và cung cấp bối cảnh cho pipeline.",
+        "reason": "Tổng hợp thông tin và cung cấp bối cảnh cho dự án.",
         "tier": "RESEARCH",
         "priority": 1,
         "max_tokens": 8192,
@@ -17,7 +17,7 @@ REGISTRY: Dict[str, Dict[str, Any]] = {
     "TECHNICAL_RESEARCHER": {
         "model": "deepseek/deepseek-v4-flash",
         "role": "Tech Researcher",
-        "reason": "Nghiên cứu kỹ thuật chuyên sâu: API docs, library internals và best practices.",
+        "reason": "Nghiên cứu tài liệu kỹ thuật và các thư viện chuyên sâu.",
         "tier": "RESEARCH",
         "priority": 1,
         "max_tokens": 8192,

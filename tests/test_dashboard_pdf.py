@@ -64,12 +64,11 @@ def test_export_pdf_uses_existing_times_font(monkeypatch, tmp_path: Path):
         def output(self, path):
             called["output"] = path
 
+    import sys
+    _pdf_mod = sys.modules["core.dashboard.output.pdf_export"]
     monkeypatch.setattr("fpdf.FPDF", FakeFPDF)
-    monkeypatch.setattr("core.dashboard.output.pdf_export.Path", Path)
-    monkeypatch.setattr(
-        "core.dashboard.output.pdf_export._candidate_fonts",
-        lambda project_root=None: (font_path, None, "test"),
-    )
+    monkeypatch.setattr(_pdf_mod, "Path", Path)
+    monkeypatch.setattr(_pdf_mod, "_candidate_fonts", lambda project_root=None: (font_path, None, "test"))
     monkeypatch.setattr("utils.tracker.summarize_tokens_by_cli_batches", lambda s, u: [])
     monkeypatch.setattr("utils.tracker.read_usage_rows_timerange", lambda s, u: [])
     monkeypatch.setattr("utils.tracker.get_period_usage", lambda: {})

@@ -1,33 +1,33 @@
 # Central registry for CLI command keys and copy.
 # Global commands:
-#   shutdown — exit the application (sys.exit)
-#   exit     — return to main menu
-#   back     — go up one level (no-op at root)
+#   shutdown -- exit the application (sys.exit)
+#   exit     -- return to main menu
+#   back     -- go up one level (no-op at root)
 
 from __future__ import annotations
 from core.cli.python_cli.i18n import t
 
-# ── Main menu ─────────────────────────────────────────────────────────────────
+# -- Main menu -----------------------------------------------------------------
 MAIN_MENU_BY_NUMBER: dict[str, str] = {
     "0": "shutdown",
-    "1": "start",
-    "2": "check",
-    "3": "status",
-    "4": "info",
-    "5": "dashboard",
-    "6": "settings",
-    "7": "help",
-    "8": "workflow",
+    "1": "chat",
+    "2": "status",
+    "3": "info",
+    "4": "dashboard",
+    "5": "settings",
+    "6": "help",
+    "7": "workflow",
 }
 
-MAIN_MENU_ALIASES: tuple[str, ...] = tuple(MAIN_MENU_BY_NUMBER.values()) + ("exit",)
+MAIN_MENU_ALIASES: tuple[str, ...] = tuple(f"/{v}" for v in MAIN_MENU_BY_NUMBER.values()) + ("/exit", "/back", "/explain", "/explainer", "/restore")
 MAIN_MENU_VALID_CHOICES: tuple[str, ...] = (
-    tuple(MAIN_MENU_BY_NUMBER.keys()) + MAIN_MENU_ALIASES + ("back",)
+    tuple(MAIN_MENU_BY_NUMBER.keys()) + MAIN_MENU_ALIASES
 )
 
-MAIN_PROMPT_LABEL = ">"
+MAIN_PROMPT_LABEL = "> "
 
-# start → mode select
+
+# start â†’ mode select
 START_MODE_BY_NUMBER: dict[str, str] = {
     "1": "ask",
     "2": "agent",
@@ -39,8 +39,7 @@ START_MODE_BY_NUMBER: dict[str, str] = {
 def menu_palette_rows() -> tuple[tuple[str, str, str], ...]:
     """Returns localized palette rows for the main menu."""
     return (
-        ("", "/start",     t("cmd.start")),
-        ("", "/check",     t("cmd.check")),
+        ("", "/chat",      t("cmd.chat")),
         ("", "/status",    t("cmd.status")),
         ("", "/info",      t("cmd.info")),
         ("", "/dashboard", t("cmd.dashboard")),
@@ -64,9 +63,9 @@ def help_screen_markdown() -> str:
 
 | {t('ui.col_cmd')}    | {t('ui.col_effect')} |
 |------------|--------|
-| `exit`     | {t('nav.exit')} |
-| `back`     | {t('nav.back')} |
-| `shutdown` | {t('menu.shutdown.desc')} |
+| `/exit`     | {t('nav.exit')} |
+| `/back`     | {t('nav.back')} |
+| `/shutdown` | {t('menu.shutdown.desc')} |
 
 ---
 
@@ -74,23 +73,22 @@ def help_screen_markdown() -> str:
 
 | {t('ui.col_key')} / {t('ui.col_cmd').lower()}     | {t('ui.col_effect')} |
 |----------------|--------|
-| **1** `start`  | {t('menu.start.desc')} |
-| **2** `check`  | {t('menu.check.desc')} |
-| **3** `status` | {t('menu.status.desc')} |
-| **4** `info`   | {t('menu.info.desc')} |
-| **5** `dashboard` | {t('menu.dashboard.desc')} |
-| **6** `settings`  | {t('menu.settings.desc')} |
-| **7** `help`   | {t('menu.help.desc')} |
-| **8** `workflow` | {t('menu.workflow.desc')} |
-| **0** `shutdown` | {t('menu.shutdown.desc')} |
+| **1** `/chat`   | {t('menu.chat.desc')} |
+| **2** `/status` | {t('menu.status.desc')} |
+| **3** `/info`   | {t('menu.info.desc')} |
+| **4** `/dashboard` | {t('menu.dashboard.desc')} |
+| **5** `/settings`  | {t('menu.settings.desc')} |
+| **6** `/help`   | {t('menu.help.desc')} |
+| **7** `/workflow` | {t('menu.workflow.desc')} |
+| **0** `/shutdown` | {t('menu.shutdown.desc')} |
 
 ---
 
 ## {t('nav.start').lower()}
 
-- **ask** — {t('help.ask_desc')}
-- **agent** — {t('help.agent_desc')}
-- **back** — {t('nav.back')}
+- **ask** -- {t('help.ask_desc')}
+- **agent** -- {t('help.agent_desc')}
+- **back** -- {t('nav.back')}
 
 ---
 
@@ -98,12 +96,12 @@ def help_screen_markdown() -> str:
 
 | {t('ui.col_cmd')}      | {t('ui.col_effect')} |
 |--------------|--------|
-| `back`       | {t('context.back_desc')} |
-| `edit`       | {t('context.edit_hint')} |
-| `delete`     | {t('context.delete_desc')} |
-| `run`        | {t('context.accept_desc')} |
-| `regenerate` | {t('context.regen_desc')} |
-| `exit`       | {t('nav.exit')} |
+| `/back`       | {t('context.back_desc')} |
+| `/edit`       | {t('context.edit_hint')} |
+| `/delete`     | {t('context.delete_desc')} |
+| `/run`        | {t('context.accept_desc')} |
+| `/regenerate` | {t('context.regen_desc')} |
+| `/exit`       | {t('nav.exit')} |
 
 ---
 
@@ -126,10 +124,10 @@ def help_screen_markdown() -> str:
 
 ## {t('menu.dashboard.desc')}
 
-- **history** — {t('dash.history_label')}
-- **total**   — {t('dash.total_label')}
-- **budget**  — {t('dash.budget_label')}
-- `back` / `0` — {t('nav.back')} · `exit` — {t('nav.exit')}
+- **history** -- {t('dash.history_label')}
+- **total**   -- {t('dash.total_label')}
+- **budget**  -- {t('dash.budget_label')}
+- `back` / `0` -- {t('nav.back')} . `exit` -- {t('nav.exit')}
 
 ---
 

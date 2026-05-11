@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import sys
 from typing import Any, Dict, Optional, Sequence, Union
@@ -31,11 +31,7 @@ def _erase_empty_enter_line() -> None:
         pass
 
 def normalize_global_command(raw: str) -> str:
-    r = (raw or "").strip().lower()
-    # Normalize slash commands for backward compatibility
-    if r == "/back": return GLOBAL_BACK
-    if r == "/exit": return GLOBAL_EXIT
-    return r
+    return (raw or "").strip().lower()
 
 def wait_enter(message: Optional[str] = None) -> None:
     msg = message if message is not None else t("ui.wait_enter")
@@ -94,14 +90,16 @@ def ask_choice(
     number_map: Optional[Dict[str, str]] = None,
     context: str = "main",
     header_ansi: Optional[str] = None,
+    force_basic: bool = False,
+    compact: bool = False,
     **kwargs: Any,
 ) -> str:
     allowed = [str(c) for c in choices]
     if not allowed:
         raise ValueError("ask_choice requires at least one choice")
-    
+
     d = str(default if default is not None else allowed[0])
-    
+
     # Prepare completer
     completer = None
     if pt_prompt:
@@ -115,14 +113,22 @@ def ask_choice(
         from rich.markup import escape as _esc
         suffix = f" [dim]\\[[/dim][bold]{_esc(d)}[/bold][dim]][/dim]" if show_default and d else ""
         prompt_text = f"{prompt}{suffix} "
-        
+        invalid_notice = kwargs.pop("_invalid_notice", "")
+
         try:
-            if pt_prompt and _palette_allowed():
+            if pt_prompt and _palette_allowed() and not force_basic:
                 from core.cli.python_cli.ui.palette_app import ask_with_palette
                 from rich.text import Text
                 raw_prompt = str(Text.from_markup(prompt_text))
                 try:
-                    raw = ask_with_palette(raw_prompt, context=context, default=d, header_ansi=header_ansi)
+                    raw = ask_with_palette(
+                        raw_prompt,
+                        context=context,
+                        default=d,
+                        header_ansi=(header_ansi + invalid_notice) if (header_ansi and invalid_notice) else header_ansi,
+                        compact=compact,
+                        force_down=kwargs.get("force_down", False)
+                    )
                 except Exception:
                     raw = _basic_prompt_input(prompt_text)
             else:
@@ -136,27 +142,28 @@ def ask_choice(
                 return d
             _erase_empty_enter_line()
             continue
-            
-        if allow_global and raw in (GLOBAL_BACK, GLOBAL_EXIT):
+
+        if allow_global and raw in ("/back", "/exit"):
             return raw
-            
+
         # Also check for slashed versions in allowed
         if raw in allowed:
             return raw
-        
-        # Strip leading slash if user typed /command but only command is in allowed
-        stripped = raw[1:] if raw.startswith('/') else raw
-        if stripped in allowed:
-            return stripped
-        slashed = f"/{stripped}" if stripped else ""
-        if slashed in allowed:
-            return slashed
+
+        # Handle slash commands with arguments: e.g. "/export pdf" matches "/export".
+        first_word = raw.split()[0] if raw.split() else ""
+        if first_word.startswith("/") and first_word in allowed:
+            return raw  # Return the FULL string so the caller can parse args
 
         if number_map and raw.isdigit():
             mapped = number_map.get(raw)
             if mapped is not None and mapped in allowed:
                 return mapped
-        
-        console.print(f"[yellow]{_invalid_retry_message()}[/yellow]")
+
+        msg = _invalid_retry_message()
+        if header_ansi and pt_prompt and _palette_allowed() and not force_basic:
+            kwargs["_invalid_notice"] = f"\n[yellow]{msg}[/yellow]\n"
+        else:
+            console.print(f"[yellow]{msg}[/yellow]")
 
 __all__ = ["ask_choice", "normalize_global_command", "wait_enter", "GLOBAL_BACK", "GLOBAL_EXIT"]

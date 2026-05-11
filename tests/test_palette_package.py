@@ -9,6 +9,7 @@ from core.cli.python_cli.ui.palette import (
     palette_autocomplete_snapshot,
     render_popup_text,
 )
+from core.cli.python_cli.ui.palette.app import _active_palette_query
 
 
 def test_palette_autocomplete_snapshot_hides_when_single_exact_monitor_cmd():
@@ -32,6 +33,50 @@ def test_palette_autocomplete_snapshot_shows_partial_monitor():
     assert len(flat) >= 2
 
 
+def test_palette_at_file_suggestions_use_workspace_root(tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    src = workspace / "src"
+    src.mkdir()
+    (src / "app.py").write_text("print('ok')", encoding="utf-8")
+    ignored = workspace / ".git"
+    ignored.mkdir()
+    (ignored / "hidden.py").write_text("print('hidden')", encoding="utf-8")
+
+    items, visible = palette_autocomplete_snapshot(
+        "@src",
+        context="monitor",
+        gate_pending=False,
+        workspace_root=workspace,
+    )
+
+    flat = [c for c, _ in items if c != "__sep__"]
+    assert visible is True
+    assert "@src/app.py" in flat
+    assert all("hidden.py" not in c for c in flat)
+
+
+def test_palette_at_file_suggestions_do_not_leak_repo_root(tmp_path):
+    workspace = tmp_path / "other_project"
+    workspace.mkdir()
+    (workspace / "local.py").write_text("", encoding="utf-8")
+
+    items, _ = palette_autocomplete_snapshot(
+        "@core/cli",
+        context="monitor",
+        gate_pending=False,
+        workspace_root=workspace,
+    )
+
+    flat = [c for c, _ in items if c != "__sep__"]
+    assert flat == []
+
+
+def test_active_palette_query_prefers_latest_at_or_slash():
+    assert _active_palette_query("/explain @src/a") == "@src/a"
+    assert _active_palette_query("hello /ask") == "/ask"
+
+
 def test_build_popup_monitor_shows_sections_for_slash_only():
     items = build_popup_items("/", context="monitor", gate_pending=False)
     assert any(c == "__sep__" for c, _ in items)
@@ -41,7 +86,7 @@ def test_build_popup_monitor_shows_sections_for_slash_only():
 def test_build_popup_main_filters_prefix():
     items = build_popup_items("/st", context="main", gate_pending=False)
     cmds = [c for c, _ in items if c != "__sep__"]
-    assert "/start" in cmds
+    assert "/status" in cmds
     assert all(c.lower().startswith("/st") for c in cmds)
 
 
@@ -52,7 +97,7 @@ def test_build_popup_main_slash_has_three_sections():
     assert len(seps) == 3, f"expected 3 sections, got: {seps}"
     flat = [c for c, _ in items if c != "__sep__"]
     # Tasks group
-    assert "/start" in flat and "/check" in flat and "/workflow" in flat
+    assert "/chat" in flat and "/workflow" in flat
     # Info group
     assert "/status" in flat and "/info" in flat and "/dashboard" in flat
     # Global group

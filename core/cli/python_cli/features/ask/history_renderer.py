@@ -17,7 +17,7 @@ _HISTORY_PREVIEW_MAX_CHARS = 180
 
 def ask_command_hints(mode: str) -> str:
     switch = "ask thinking" if mode == "standard" else "ask standard"
-    return f"[dim]{switch}  ·  back  ·  exit[/dim]"
+    return f"[dim]{switch}  .  back  .  exit[/dim]"
 
 
 def render_history_lines(chat: Dict, limit: int = 12) -> List[str]:
@@ -33,26 +33,29 @@ def render_history_lines(chat: Dict, limit: int = 12) -> List[str]:
 
 
 def _print_message_panel(index: int, role: str, content: str, *, max_chars: int = 0) -> None:
-    is_user  = role == "user"
-    label    = t("ask.label_you") if is_user else t("ask.label_ai")
-    border   = PASTEL_CYAN if is_user else PASTEL_BLUE
-    label_s  = Style(color=PASTEL_CYAN, bold=True) if is_user else Style(color=SOFT_WHITE, bold=True)
-    body     = (content or "").strip()
+    from rich.table import Table
+    from rich.markdown import Markdown
+    from core.cli.python_cli.ui.ui import PASTEL_BLUE, PASTEL_LAVENDER
+
+    is_user = role == "user"
+    label = t("ui.user") if is_user else t("ui.assistant")
+    border = PASTEL_BLUE if is_user else PASTEL_LAVENDER
+    body = (content or "").strip()
+
     if max_chars > 0 and len(body) > max_chars:
         body = body[: max_chars - 3] + "..."
     if not body:
         body = t("ui.empty")
-    inner = Text.assemble((f"{label}\n", label_s), (body, Style(color=SOFT_WHITE)))
-    console.print(
-        Panel(
-            inner,
-            title=f"[dim]#{index}[/dim]",
-            title_align="right",
-            border_style=border,
-            box=ROUNDED,
-            padding=(0, 1),
-        )
-    )
+
+    console.print(f"[{border} bold]{label}[/]")
+    console.print(f"[{border}]" + "-" * 16 + "[/]")
+
+    table = Table(show_header=False, show_edge=False, box=None, padding=(0, 0, 0, 0))
+    table.add_column("Prefix", style=border, width=2)
+    table.add_column("Body")
+    table.add_row("> ", Markdown(body))
+    console.print(table)
+    console.print()
 
 
 def _render_loaded_history(chat: dict, limit: int = 12) -> None:
@@ -77,9 +80,11 @@ def _ask_input_with_header(header_text: str, mode: str, *, compact: bool = False
 
     if compact:
         console.print(hints)
-        return ask_with_palette(f"{label_you}  >  ", context="ask_chat")
+        return ask_with_palette("> ", context="ask_chat")
+
 
     console.print(Rule(f"[{PASTEL_CYAN}]{header_text}[/{PASTEL_CYAN}]", style=PASTEL_BLUE))
     console.print(hints)
     console.print()
-    return ask_with_palette(f"{label_you}  >  ", context="ask_chat")
+    return ask_with_palette("> ", context="ask_chat")
+

@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import shutil
 import time
 from typing import Optional
+from io import StringIO
+from rich.console import Console as RichConsole
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.box import ROUNDED
 
 from core.cli.python_cli.shell.nav import NavToMain
 from core.app_state import get_prompt_overrides, log_system_action
-from core.cli.python_cli.ui.ui import console, clear_screen
+from core.cli.python_cli.ui.ui import console, clear_screen, PASTEL_BLUE, PASTEL_LAVENDER
+from core.cli.python_cli.ui.palette_app import ask_with_palette
 from core.domain.prompts import ASK_MODE_SYSTEM_PROMPT
 from core.storage import ask_history
 from core.cli.python_cli.i18n import t
@@ -18,6 +25,7 @@ from .chat_manager import (
     _new_chat_name,
     _pick_chat_on_ask_entry,
 )
+from .model_selector import _chat_model_settings
 from .history_renderer import (
     _ask_input_with_header,
     _print_message_panel,
@@ -68,67 +76,106 @@ def run_ask_mode(
                 log_system_action("ask.chat.rename", f"{active['name']}->{new_name}")
                 active = ask_history.get_active_chat(store) or active
         _print_message_panel(len(active.get("messages") or []), "user", prompt.strip())
+
     ask_history.save_store(store)
+
     first_you_prompt = True
     _last_replied_msg: str | None = None
+    _last_rendered_msg_idx = 0
+
+    active = ask_history.get_active_chat(store)
+    if not active:
+        default_name = _new_chat_name()
+        ask_history.create_chat(store, default_name, mode="standard")
+        ask_history.save_store(store)
+        active = ask_history.get_active_chat(store)
+
+    chat_name = active["name"]
+    mode = active.get("mode", "standard")
+
+    # Print initial header and history once
+    clear_screen()
+    model_name, _, _, _ = _chat_model_settings(mode)
+    width = shutil.get_terminal_size((120, 30)).columns
+    console.print(f"\n[dim]{'-' * ((width-20)//2)} {t('ask.history_rule')} {'-' * ((width-20)//2)}[/dim]")
+    mode_label = f"[bold white on blue] {mode.upper()} [/bold white on blue] [dim]({model_name})[/dim]"
+    console.print(f" [bold cyan]{chat_name}[/bold cyan]  {mode_label}")
+    console.print(f"[dim]{'-' * width}[/dim]\n")
+
+    messages = active.get("messages", [])
+    for idx, msg in enumerate(messages):
+        _print_message_panel(idx + 1, msg.get("role", "user"), msg.get("content", ""))
+    _last_rendered_msg_idx = len(messages)
+
     while True:
         active = ask_history.get_active_chat(store)
         if not active:
-            default_name = _new_chat_name()
-            ask_history.create_chat(store, default_name, mode="standard")
-            ask_history.save_store(store)
-            active = ask_history.get_active_chat(store)
+            break
+
         chat_name = active["name"]
         mode = active.get("mode", "standard")
-        pending_msg = None
-        if active.get("messages"):
-            last = active["messages"][-1]
-            if last.get("role") == "user":
-                pending_msg = last.get("content", "")
-        if not pending_msg:
-            pending_msg = _ask_input_with_header(
-                _format_chat_header(active), mode, compact=not first_you_prompt
-            )
-            first_you_prompt = False
-        text = pending_msg.strip()
+        messages = active.get("messages", [])
+
+        # Print any new messages that arrived
+        while _last_rendered_msg_idx < len(messages):
+            msg = messages[_last_rendered_msg_idx]
+            _print_message_panel(_last_rendered_msg_idx + 1, msg.get("role", "user"), msg.get("content", ""))
+            _last_rendered_msg_idx += 1
+
+        ctx = "ask_session_thinking" if mode == "thinking" else "ask_session_standard"
+
+        try:
+            text = ask_with_palette("> ", context=ctx, compact=True).strip()
+
+        except (KeyboardInterrupt, EOFError):
+            break
+
         if not text:
+            import time
+            time.sleep(0.1) # Prevent spamming
             continue
         try:
             text = validate_user_prompt(text)
         except PromptTooLong as _e:
-            console.print(f"[yellow]{t('ask.msg_too_long').format(n=len(pending_msg.strip()))}[/yellow]")
+            console.print(f"[yellow]{t('ask.msg_too_long').format(n=len(text))}[/yellow]")
             continue
         except PromptInvalid as _e:
             console.print(f"[yellow]{t('ask.msg_invalid').format(e=_e)}[/yellow]")
             continue
+
         tl = text.lower()
-        if tl == "exit":
+        if tl == "/exit":
             ask_history.save_store(store)
             raise NavToMain
-        if tl == "back":
+        if tl == "/back":
             log_system_action("ask.back", chat_name)
             ask_history.save_store(store)
             return
-        if text.lower() == "ask thinking":
+        if tl == "/thinking":
             if mode == "thinking":
                 console.print(f"[yellow]{t('ask.mode_thinking')}[/yellow]")
-                time.sleep(3)
+                import time
+                time.sleep(1)
                 continue
             ask_history.set_chat_mode(store, chat_name, "thinking")
             log_system_action("ask.mode.switch", f"{chat_name}:thinking")
             active = ask_history.get_active_chat(store) or active
+            model_name, _, _, _ = _chat_model_settings("thinking")
+            console.print(f"\n[dim]--[/dim] [bold white on blue] THINKING [/bold white on blue] [dim]({model_name})[/dim]")
+            console.print()
             continue
-        if text.lower() == "ask standard":
+        if tl == "/standard":
             if mode == "standard":
                 console.print(f"[yellow]{t('ask.mode_standard')}[/yellow]")
-                time.sleep(3)
+                import time
+                time.sleep(1)
                 continue
             ask_history.set_chat_mode(store, chat_name, "standard")
             log_system_action("ask.mode.switch", f"{chat_name}:standard")
             active = ask_history.get_active_chat(store) or active
-            continue
-        if text.lower().startswith("ask "):
-            console.print(f"[yellow]{t('ask.mode_switch_hint')}[/yellow]")
+            model_name, _, _, _ = _chat_model_settings("standard")
+            console.print(f"\n[dim]--[/dim] [bold white on blue] STANDARD [/bold white on blue] [dim]({model_name})[/dim]")
+            console.print()
             continue
         if looks_like_code_intent(text) and not explain_only:
             console.print(f"[yellow]{t('ask.agent_mode_hint')}[/yellow]")
@@ -153,6 +200,7 @@ def run_ask_mode(
                 active = ask_history.get_active_chat(store) or active
         if appended_user:
             _print_message_panel(len(active.get("messages") or []), "user", text)
+            _last_rendered_msg_idx += 1
         model, max_tokens, _, _ = _chat_model_settings(active.get("mode", "standard"))
         _ask_system_prompt = ASK_MODE_SYSTEM_PROMPT
         _ask_role = "CHAT_MODEL_STANDARD"
@@ -176,8 +224,12 @@ def run_ask_mode(
             active_after = ask_history.get_active_chat(store) or active
             msg_n = len(active_after.get("messages") or [])
             _print_message_panel(msg_n, "assistant", answer or "")
+            _last_rendered_msg_idx += 1
             _last_replied_msg = text
             first_you_prompt = False
+
+            # Visual spacing before the next prompt
+            console.print()
         except (OSError, RuntimeError, ValueError) as e:
             console.print(f"[red]{t('cmd.ask_error')}: {e}[/red]")
             ask_history.save_store(store)

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from core.cli.python_cli.features.context.common import (
     delete_state_json_on_accept,
@@ -17,18 +17,27 @@ def apply_context_accept_from_monitor(project_root: str) -> bool:
     ctx = find_context_md(project_root)
     if not ctx or is_no_context(ctx):
         return False
-    try:
-        graphrag_drop(ctx)
-        ctx.unlink(missing_ok=True)
-    except OSError:
-        return False
     delete_state_json_on_accept(ctx)
     update_context_state("completed", ctx, reason="accept_from_monitor")
     log_system_action("context.accept_monitor", str(ctx))
     if ws.is_paused_for_review():
         ws.set_should_finalize(True)
         ws.set_context_accept_status("accepted")
-        return bool(resume_workflow())
+        result = resume_workflow()
+        # Delete context.md AFTER resume so tool_curator can read it during pipeline execution.
+        # Deleting before resume caused apply_stale_workflow_ui_if_needed() to reset active_step
+        # to "idle" on every poll tick while nodes were running.
+        try:
+            graphrag_drop(ctx)
+            ctx.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return bool(result)
+    try:
+        graphrag_drop(ctx)
+        ctx.unlink(missing_ok=True)
+    except OSError:
+        pass
     return True
 
 

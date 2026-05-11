@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from core.cli.python_cli.shell.command_registry import menu_commands
 
@@ -6,11 +6,11 @@ from core.cli.python_cli.shell.command_registry import menu_commands
 
 
 def context_viewer_choices() -> list[str]:
-    return ["back", "edit", "delete", "run", "regenerate", "exit"]
+    return ["/back", "/edit", "/delete", "/run", "/regenerate", "/exit"]
 
 
 def start_mode_choices() -> list[str]:
-    return ["ask", "agent", "back", "exit"]
+    return ["/ask", "/agent", "/back", "/exit"]
 
 
 __all__ = ["context_viewer_choices", "menu_commands", "start_mode_choices"]

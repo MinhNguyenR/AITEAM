@@ -45,6 +45,35 @@ def search_model_substring(rows: List[Dict[str, Any]], needle: str) -> List[Dict
     return sorted(agg.values(), key=lambda x: -x["tokens"])
 
 
+def aggregate_role_detail(rows: List[Dict[str, Any]], role_name: str) -> List[Dict[str, Any]]:
+    """Return per-model token breakdown for *role_name* (case-insensitive)."""
+    needle = role_name.strip().lower()
+    m: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        role = str(r.get("role_key") or r.get("agent") or "unknown")
+        if role.lower() != needle:
+            continue
+        mod = str(r.get("model") or "")
+        if mod not in m:
+            m[mod] = {
+                "model": mod,
+                "requests": 0,
+                "input_tokens": 0,
+                "cache_read_tokens": 0,
+                "cache_write_tokens": 0,
+                "output_tokens": 0,
+                "cost": 0.0,
+            }
+        b = m[mod]
+        b["requests"] += 1
+        b["input_tokens"] += safe_int(r.get("prompt_tokens"))
+        b["cache_read_tokens"] += safe_int(r.get("cache_read_tokens"))
+        b["cache_write_tokens"] += safe_int(r.get("cache_write_tokens"))
+        b["output_tokens"] += safe_int(r.get("completion_tokens"))
+        b["cost"] += safe_float(r.get("cost_usd"))
+    return sorted(m.values(), key=lambda x: -x["requests"])
+
+
 def rows_for_summary_period(period: str) -> List[Dict[str, Any]]:
     cache_key = f"summary_period:{period or 'session'}"
     cached = cache_get(cache_key)

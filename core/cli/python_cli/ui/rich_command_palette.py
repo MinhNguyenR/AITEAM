@@ -12,7 +12,7 @@ from rich.text import Text
 
 from core.cli.python_cli.i18n import t
 from core.cli.python_cli.shell.choice_lists import menu_commands
-from core.app_state import get_cli_settings, is_context_active
+from core.app_state import get_cli_settings
 from core.cli.python_cli.ui.ui import (
     BRIGHT_BLUE,
     PASTEL_BLUE,
@@ -25,9 +25,9 @@ from core.cli.python_cli.ui.ui import (
 )
 
 
-_PTK_BLUE   = "bright_blue"   # vivid blue  — maps cleanly in true-color
+_PTK_BLUE   = "bright_blue"   # vivid blue  -- maps cleanly in true-color
 _PTK_CYAN   = "bright_cyan"   # vivid cyan
-_PTK_WHITE  = "white"         # pure white  — no blue/purple tint
+_PTK_WHITE  = "white"         # pure white  -- no blue/purple tint
 _PTK_DIM    = "bright_black"  # dim/grey
 
 
@@ -39,19 +39,7 @@ def _build_menu_on(cap: RichConsole, context_ready: bool) -> None:
     cap.print(Panel(logo_text, border_style=_PTK_BLUE, box=DOUBLE, padding=(1, 4)))
     cap.print()
 
-    if is_context_active() and context_ready:
-        cap.print(
-            Panel(
-                Text.assemble(
-                    (f"{t('gate.waiting')}  ", Style(color="bright_green", bold=True)),
-                    (f"  {t('nav.choose')} ", Style(color=_PTK_DIM)),
-                    ("/check", Style(color=_PTK_CYAN, bold=True)),
-                    (f" {t('context.subheader').lower()}", Style(color=_PTK_DIM)),
-                ),
-                border_style="bright_green", box=ROUNDED, padding=(0, 2),
-            )
-        )
-        cap.print()
+    _ = context_ready
 
     settings = get_cli_settings()
     aca = str(settings.get("auto_context_action", "ask"))
@@ -59,7 +47,7 @@ def _build_menu_on(cap: RichConsole, context_ready: bool) -> None:
     status_parts = [
         (f"{t('status.paths').split(' ')[0].lower()}:", Style(color=_PTK_DIM)),
         (f" {aa_label}  ", Style(color=_PTK_CYAN)),
-        (f"·  {t('settings.context_act')}:", Style(color=_PTK_DIM)),
+        (f".  {t('settings.context_act')}:", Style(color=_PTK_DIM)),
         (f" {t(f'ui.{aca}')}", Style(color=_PTK_CYAN)),
     ]
     cap.print(Text.assemble(*status_parts))
@@ -91,19 +79,7 @@ def render_command_palette(context_ready: bool) -> None:
     clear_screen()
     print_logo(compact=False)
 
-    if is_context_active() and context_ready:
-        console.print(
-            Panel(
-                Text.assemble(
-                    (f"{t('gate.waiting')}  ", Style(color="green", bold=True)),
-                    (f"  {t('nav.choose')} ", Style(color=PASTEL_BLUE, dim=True)),
-                    ("/check", Style(color=PASTEL_CYAN, bold=True)),
-                    (f" {t('context.subheader').lower()}", Style(color=PASTEL_BLUE, dim=True)),
-                ),
-                border_style="green", box=ROUNDED, padding=(0, 2),
-            )
-        )
-        console.print()
+    _ = context_ready
 
     settings = get_cli_settings()
     aca = str(settings.get("auto_context_action", "ask"))
@@ -111,7 +87,7 @@ def render_command_palette(context_ready: bool) -> None:
     status_parts = [
         (f"{t('status.paths').split(' ')[0].lower()}:", Style(color=PASTEL_BLUE, dim=True)),
         (f" {aa_label}  ", Style(color=PASTEL_CYAN)),
-        (f"·  {t('settings.context_act')}:", Style(color=PASTEL_BLUE, dim=True)),
+        (f".  {t('settings.context_act')}:", Style(color=PASTEL_BLUE, dim=True)),
         (f" {t(f'ui.{aca}')}", Style(color=PASTEL_CYAN)),
     ]
     console.print(Text.assemble(*status_parts))

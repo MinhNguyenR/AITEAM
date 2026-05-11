@@ -33,7 +33,68 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
         # Local copy avoids Python scoping error
         _task = task_text
 
-        if not regenerate:
+        def _is_restore_request(text: str) -> bool:
+            import re
+            return bool(re.search(r"\b(restore|revert|undo|rollback)\b|khôi\s*phục|hoàn\s*tác", text, re.IGNORECASE))
+
+        def _wait_for_clarification(label: str, q_list: list[dict]) -> str:
+            if not q_list:
+                return ""
+            ws_session.set_clarification(q_list)
+            workflow_event(label, "pending", f"questions={len(q_list)}")
+            import time as _time
+            _deadline = _time.time() + 360
+            while ws_session.is_clarification_pending() and _time.time() < _deadline:
+                if ws_session.is_pipeline_stop_requested():
+                    ws_session.clear_clarification()
+                    ws_session.set_pipeline_run_finished(True)
+                    return ""
+                _time.sleep(0.5)
+            answer = ws_session.get_clarification_answer()
+            ws_session.clear_clarification()
+            return answer if answer and answer != "__skip__" else ""
+
+        if not regenerate and _is_restore_request(_task):
+            from core.domain.delta_brief import DeltaBrief
+            brief = DeltaBrief(
+                original_prompt=_task,
+                summary="Restore code from SQLite backup",
+                tier="LOW",
+                target_model="",
+                selected_leader="LEADER_LOW",
+                parameters={"fast_path": "restore"},
+                language_detected="unknown",
+            )
+        elif not regenerate:
+            try:
+                from agents.secretary import Secretary
+                secretary = Secretary()
+                if secretary.should_redirect_to_ask(_task):
+                    ws_session.set_pipeline_redirect("ask")
+                    ws_session.set_pipeline_run_finished(True)
+                    return
+                ws_session.set_pipeline_active_step("secretary")
+                ws_session.update_workflow_node_status("secretary", "running", "Analyzing user input")
+                ws_session.set_pipeline_status_message("Secretary dang phan tich input...")
+                q_list = secretary.analyze_input(_task, project_root)
+                answer = _wait_for_clarification("secretary_clarification", q_list)
+                if answer:
+                    _task = f"{_task}\n\nSecretary clarification from user:\n{answer}"
+                    workflow_event("secretary_clarification", "answered", str(answer)[:100])
+                else:
+                    workflow_event("secretary_clarification", "skipped", "no answer or no questions")
+                try:
+                    ws_session.clear_secretary_substate()
+                except Exception:
+                    pass
+                ws_session.clear_leader_stream_buffer()
+            except Exception as exc:
+                workflow_event("secretary_clarification", "error", str(exc)[:120])
+                try:
+                    ws_session.clear_secretary_substate()
+                except Exception:
+                    pass
+
             try:
                 from agents.ambassador import Ambassador
                 ambassador = Ambassador()
@@ -48,7 +109,7 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
             ws_session.set_pipeline_ambassador_status("running")
             ws_session.set_pipeline_active_step("ambassador")
             workflow_event("ambassador", "enter", "parse task")
-            ws_session.set_pipeline_status_message("Ambassador parsing task…")
+            ws_session.set_pipeline_status_message("Ambassador parsing task...")
 
             try:
                 brief = ambassador.parse(_task)
@@ -74,7 +135,7 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
                 state_path = os.path.join(project_root, ".ai-team", "state.json")
                 with open(state_path, "r", encoding="utf-8") as f:
                     state_data = json.load(f)
-                
+
                 # Mock a brief based on state.json
                 brief = DeltaBrief(
                     original_prompt=state_data.get("original_prompt", _task),
@@ -90,8 +151,9 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
                 ws_session.set_pipeline_run_finished(True)
                 return
 
-        if not regenerate:
+        if not regenerate and not (getattr(brief, "parameters", {}) or {}).get("fast_path") == "restore":
             ws_session.set_pipeline_after_ambassador(brief)
+            ws_session.clear_leader_stream_buffer()
             workflow_event("ambassador", "done", f"tier={brief.tier}")
             amb_usage = getattr(ambassador, "last_usage_event", {}) or {}
             if amb_usage:
@@ -107,36 +169,21 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
                 )
 
         settings = get_cli_settings()
-        
+
         # Write state.json first so Leader Clarification can read it!
-        if not regenerate:
+        if not regenerate and not (getattr(brief, "parameters", {}) or {}).get("fast_path") == "restore":
             write_task_state_json(brief, _task, project_root, source_node="ambassador")
 
-        # ── Phase 4: Clarification gate ───────────────────────────────────────
-        if not regenerate and is_ambiguous_task(_task):
+        # -- Phase 4: Clarification gate ---------------------------------------
+        if not regenerate and not (getattr(brief, "parameters", {}) or {}).get("fast_path") == "restore" and is_ambiguous_task(_task):
             try:
                 ws_session.set_pipeline_active_step("leader_generate")
                 ws_session.set_leader_action("reading state.json")
                 q_list = generate_clarification_qa(_task, brief, project_root)
                 ws_session.clear_leader_action()
                 if q_list:
-                    # Store the whole list in session
-                    ws_session.set_clarification(q_list)
-                    workflow_event("clarification", "pending", f"questions={len(q_list)}")
-
-                    import time as _time
-                    _deadline = _time.time() + 360  # 6 min max wait
-                    while ws_session.is_clarification_pending() and _time.time() < _deadline:
-                        if ws_session.is_pipeline_stop_requested():
-                            ws_session.clear_clarification()
-                            ws_session.set_pipeline_run_finished(True)
-                            return
-                        _time.sleep(0.5)
-
-                    answer = ws_session.get_clarification_answer()
-                    ws_session.clear_clarification()
-
-                    if answer and answer != "__skip__":
+                    answer = _wait_for_clarification("clarification", q_list)
+                    if answer:
                         _task = f"{_task}\n\nClarification from user:\n{answer}"
                         # Re-write state.json with updated task so Leader graph gets it
                         write_task_state_json(brief, _task, project_root, source_node="ambassador")
@@ -155,15 +202,16 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
             import time
             time.sleep(1.0)
             ws_session.clear_leader_action()
-        # ─────────────────────────────────────────────────────────────────────
+        # ---------------------------------------------------------------------
         try:
             from utils import tracker as _tr
             _tr.append_cli_batch("agent", _task[:220])
         except (ImportError, OSError, ValueError):
             pass
 
+        outcome = None
         try:
-            run_agent_graph(brief, _task, project_root, settings, inline_progress=False)
+            outcome = run_agent_graph(brief, _task, project_root, settings, inline_progress=False)
         except Exception as e:
             logger.exception("[start_flow] pipeline run aborted: %s", e)
             try:
@@ -172,6 +220,9 @@ def start_pipeline_from_tui(task_text: str, project_root: str, mode: str = "agen
             except Exception:
                 logger.debug("[start_flow] could not set pipeline failure state", exc_info=True)
         finally:
-            ws_session.set_pipeline_run_finished(True)
+            # Do NOT mark finished when paused at gate -- the gate is still waiting for user input.
+            # resume_workflow() will call set_pipeline_run_finished(True) after the user accepts.
+            if outcome != "paused":
+                ws_session.set_pipeline_run_finished(True)
 
     threading.Thread(target=_run, daemon=True).start()

@@ -50,6 +50,8 @@ def append_usage_log(entry: Dict[str, Any]) -> None:
     normalized["model"] = str(normalized.get("model", ""))
     normalized["prompt_tokens"] = safe_int(normalized.get("prompt_tokens"))
     normalized["completion_tokens"] = safe_int(normalized.get("completion_tokens"))
+    normalized["cache_read_tokens"] = safe_int(normalized.get("cache_read_tokens"))
+    normalized["cache_write_tokens"] = safe_int(normalized.get("cache_write_tokens"))
     if "total_tokens" not in normalized:
         normalized["total_tokens"] = normalized["prompt_tokens"] + normalized["completion_tokens"]
     normalized["total_tokens"] = safe_int(normalized.get("total_tokens"))
@@ -92,6 +94,8 @@ def read_usage_log(last_n: int = 5000) -> List[Dict[str, Any]]:
         raw["model"] = str(raw.get("model", ""))
         raw["prompt_tokens"] = safe_int(raw.get("prompt_tokens"))
         raw["completion_tokens"] = safe_int(raw.get("completion_tokens"))
+        raw["cache_read_tokens"] = safe_int(raw.get("cache_read_tokens"))
+        raw["cache_write_tokens"] = safe_int(raw.get("cache_write_tokens"))
         raw["total_tokens"] = safe_int(raw.get("total_tokens")) or (raw["prompt_tokens"] + raw["completion_tokens"])
         raw["cost_usd"] = safe_float(raw.get("cost_usd"))
         if raw["cost_usd"] <= 0:

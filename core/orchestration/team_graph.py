@@ -20,7 +20,16 @@ from .team_nodes import (
     node_finalize_phase1,
     node_human_context_gate,
     node_leader_generate,
+    node_parallel_join,
+    node_parallel_prepare,
+    node_secretary,
+    node_secretary_setup,
     node_tool_curator,
+    node_worker_a,
+    node_worker_b,
+    node_worker_c,
+    node_worker_d,
+    node_worker_e,
 )
 from .team_routing import route_after_leader, route_entry
 from .team_state import TeamState
@@ -37,6 +46,15 @@ def _build_graph() -> StateGraph:
     graph.add_node("leader_generate", node_leader_generate)
     graph.add_node("human_context_gate", node_human_context_gate)
     graph.add_node("tool_curator", node_tool_curator)
+    graph.add_node("parallel_prepare", node_parallel_prepare)
+    graph.add_node("secretary_setup", node_secretary_setup)
+    graph.add_node("worker_a", node_worker_a)
+    graph.add_node("worker_b", node_worker_b)
+    graph.add_node("worker_c", node_worker_c)
+    graph.add_node("worker_d", node_worker_d)
+    graph.add_node("worker_e", node_worker_e)
+    graph.add_node("parallel_join", node_parallel_join)
+    graph.add_node("secretary", node_secretary)
     graph.add_node("finalize_phase1", node_finalize_phase1)
     graph.add_node("end_failed", node_end_failed)
 
@@ -50,8 +68,17 @@ def _build_graph() -> StateGraph:
         route_after_leader,
         {"human_context_gate": "human_context_gate", "end_failed": "end_failed"},
     )
+    graph.add_edge("human_context_gate", "parallel_prepare")
     graph.add_edge("human_context_gate", "tool_curator")
-    graph.add_edge("tool_curator", "finalize_phase1")
+    graph.add_edge(["parallel_prepare", "tool_curator"], "secretary_setup")
+    graph.add_edge("secretary_setup", "worker_a")
+    graph.add_edge("secretary_setup", "worker_b")
+    graph.add_edge("secretary_setup", "worker_c")
+    graph.add_edge("secretary_setup", "worker_d")
+    graph.add_edge("secretary_setup", "worker_e")
+    graph.add_edge(["worker_a", "worker_b", "worker_c", "worker_d", "worker_e"], "parallel_join")
+    graph.add_edge("parallel_join", "secretary")
+    graph.add_edge("secretary", "finalize_phase1")
     graph.add_edge("finalize_phase1", END)
     graph.add_edge("end_failed", END)
     _builder = graph

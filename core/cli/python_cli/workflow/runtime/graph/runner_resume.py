@@ -1,4 +1,4 @@
-"""Resume workflow after a human gate pause."""
+﻿"""Resume workflow after a human gate pause."""
 
 from __future__ import annotations
 
@@ -19,8 +19,7 @@ def resume_workflow() -> bool:
     ws.set_pipeline_paused_at_gate(False)
     ws.set_pipeline_active_step("human_context_gate")
 
-    ib = ws.get_interrupt_before()
-    graph = get_graph(get_checkpointer(), interrupt_before=ib)
+    graph = get_graph(get_checkpointer(), interrupt_before=())
     config = {"configurable": {"thread_id": tid}}
     try:
         while True:

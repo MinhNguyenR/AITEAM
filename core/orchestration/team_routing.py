@@ -4,7 +4,7 @@ from .team_state import TeamState
 
 
 def route_entry(state: TeamState) -> str:
-    _ = state["brief_dict"].get("tier", "MEDIUM")
+    _ = state
     return "leader_generate"
 
 

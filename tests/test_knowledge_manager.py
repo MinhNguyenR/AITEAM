@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agents._knowledge_manager import KnowledgeManager
+from agents.support._knowledge_manager import KnowledgeManager
 
 
 def _make_mock_brain(results=None, cid="entry-1"):
@@ -34,7 +34,7 @@ class TestBrainLazyInit:
         mock_class = MagicMock(return_value=mock_brain)
         with patch.dict("sys.modules", {"core.storage": MagicMock(CompressedBrain=mock_class)}):
             # Force re-import by patching inside the function
-            with patch("agents._knowledge_manager.KnowledgeManager.brain",
+            with patch("agents.support._knowledge_manager.KnowledgeManager.brain",
                        new_callable=lambda: property(lambda self: mock_brain)):
                 b = km.brain
         # Brain is lazy — calling search initialises it
