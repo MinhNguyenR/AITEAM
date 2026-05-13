@@ -1,6 +1,6 @@
-# 🤖 AI Team Blueprint
+# 🤖 AI Team 
 
-**Version 6.5.0** | Enterprise-grade **Multi-Agent Orchestration Framework** designed for high-density systems engineering and massive context management.
+**Version 6.0** | Enterprise-grade **Multi-Agent Orchestration Framework** designed for high-density systems engineering and massive context management.
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org)
 [![Agents](https://img.shields.io/badge/Agents-42_Profiles_%285_Core_Implemented%29-orange)]()
@@ -12,7 +12,7 @@
 
 ## 📖 Overview
 
-**AI Team Blueprint** là một hệ thống điều phối Multi-Agent tự trị, tập trung vào việc thu hẹp khoảng cách giữa việc "chat với LLM" và "xây dựng phần mềm thực tế". Thay vì sử dụng một mô hình duy nhất, hệ thống phân rã bài toán thành các tác vụ chuyên biệt, được điều phối bởi một bộ máy vận hành (**aiteamruntime**) dựa trên sự kiện (event-driven).
+**AI Team** là một hệ thống điều phối Multi-Agent tự trị, tập trung vào việc thu hẹp khoảng cách giữa việc "chat với LLM" và "xây dựng phần mềm thực tế". Thay vì sử dụng một mô hình duy nhất, hệ thống phân rã bài toán thành các tác vụ chuyên biệt, được điều phối bởi một bộ máy vận hành (**aiteamruntime**) dựa trên sự kiện (event-driven).
 
 ### Tại sao lại là AI Team?
 
@@ -124,5 +124,4 @@ Dự án được phát triển bởi **Nguyễn Đặng Tường Minh**. Mình 
 
 ---
 
-*Licensed under the Apache License, Version 2.0*  
 *Last updated: May 13, 2026*
