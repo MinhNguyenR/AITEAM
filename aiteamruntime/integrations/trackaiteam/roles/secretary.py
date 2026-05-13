@@ -34,6 +34,13 @@ def secretary_agent(ctx: AgentContext, event: AgentEvent) -> None:
             role_state="done",
         )
         ctx.emit("done", {"stage": stage, "command": command}, stage=stage)
+        if stage == "setup":
+            ctx.emit(
+                "setup_finished",
+                {"stage": stage, "command": command, "gate_id": event.payload.get("gate_id") or "", "setup_index": event.payload.get("setup_index"), "setup_total": event.payload.get("setup_total")},
+                stage=stage,
+                role_state="done",
+            )
         return
 
     started = time.monotonic()
@@ -96,6 +103,13 @@ def secretary_agent(ctx: AgentContext, event: AgentEvent) -> None:
         stage=stage,
         work_item_id=event.work_item_id or str(event.payload.get("work_item_id") or ""),
     )
+    if stage == "setup":
+        ctx.emit(
+            "setup_finished",
+            {"stage": stage, "command": command, "gate_id": event.payload.get("gate_id") or "", "setup_index": event.payload.get("setup_index"), "setup_total": event.payload.get("setup_total")},
+            stage=stage,
+            role_state="done",
+        )
 
 
 def run_secretary_command_with_retry(ctx: AgentContext, argv: list[str], *, cwd: str, timeout: float) -> dict[str, Any]:

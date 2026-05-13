@@ -68,7 +68,7 @@ def python_vite_react_project_command() -> dict[str, Any]:
         "src=root/'src'\n"
         "src.mkdir(exist_ok=True)\n"
         "pkg={\n"
-        "  'name':'aiteamruntime-vite-react-app',\n"
+        "  'name':'aiteam-vite-react-app',\n"
         "  'private':True,\n"
         "  'version':'0.1.0',\n"
         "  'type':'module',\n"
@@ -83,11 +83,11 @@ def python_vite_react_project_command() -> dict[str, Any]:
         "(src/'style.css').write_text(\":root{font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;color:#20242a;background:#f7f8fb}body{margin:0}.app-shell{min-height:100vh;display:grid;place-items:center;padding:32px}.workspace-panel{max-width:720px;border:1px solid #d9dee7;background:white;border-radius:8px;padding:28px}.eyebrow{font-size:12px;text-transform:uppercase;color:#5c6b7d;letter-spacing:.04em}h1{margin:0 0 12px;font-size:32px}\\n\", encoding='utf-8')\n"
         "manifest={'tool':'Secretary','project':'vite-react','created_at':time.time(),'files':['package.json','index.html','src/main.jsx','src/App.jsx','src/style.css']}\n"
         "(root/'.aiteamruntime_setup.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\\n', encoding='utf-8')\n"
-        "print('Secretary created Vite React project scaffold')\n"
+        "print('Secretary created real Vite React project scaffold')\n"
         "print(json.dumps(manifest, ensure_ascii=False))\n"
     )
     return {
-        "label": "Secretary create Vite React project scaffold",
+        "label": "Secretary scaffold real Vite React project",
         "argv": [sys.executable, "-c", script],
         "timeout": 60,
         "creates": ["package.json", "index.html", "src/main.jsx", "src/App.jsx", "src/style.css", ".aiteamruntime_setup.json"],
@@ -110,8 +110,10 @@ def command_payload(command: Any, stage: str) -> dict[str, Any]:
         argv = [str(part) for part in command.get("argv") or []]
         label = str(command.get("label") or " ".join(argv))
         timeout = float(command.get("timeout") or 30)
+        cwd = str(command.get("cwd") or ".")
     else:
         argv = []
         label = str(command)
         timeout = 30.0
-    return {"command": label, "argv": argv, "cwd": ".", "stage": stage, "timeout": timeout}
+        cwd = "."
+    return {"command": label, "argv": argv, "cwd": cwd, "stage": stage, "timeout": timeout}

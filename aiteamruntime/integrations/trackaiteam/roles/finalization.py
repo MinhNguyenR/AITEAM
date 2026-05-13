@@ -6,6 +6,7 @@ from typing import Any
 from aiteamruntime.core.events import AgentEvent
 from aiteamruntime.core.runtime import AgentContext
 
+from ..dispatch import latest_dag
 from ..model import chat_completion, model_meta, real_model_enabled
 from ..utils import model_error
 
@@ -14,6 +15,12 @@ def finalizer_agent(ctx: AgentContext, event: AgentEvent) -> None:
     events = ctx.runtime.store.read_events(ctx.run_id)
     if any(item.get("agent_id") == "Runtime Finalizer" and item.get("kind") == "finalized" for item in events):
         return
+    dag = latest_dag(events)
+    dag_ids = {
+        str(item.get("id") or "")
+        for item in dag.get("work_items") or []
+        if isinstance(item, dict) and str(item.get("id") or "")
+    }
     assigned_ids = {
         str(item.get("work_item_id") or ((item.get("assignment") or {}).get("id")) or "")
         for item in events
@@ -22,13 +29,14 @@ def finalizer_agent(ctx: AgentContext, event: AgentEvent) -> None:
     done_ids = {
         str(item.get("work_item_id") or "")
         for item in events
-        if item.get("kind") == "done" and str(item.get("work_item_id") or "")
+        if item.get("kind") in {"done", "validated"} and str(item.get("work_item_id") or "")
     }
     assigned_ids.discard("")
-    if assigned_ids and not assigned_ids.issubset(done_ids):
+    expected_ids = dag_ids or assigned_ids
+    if expected_ids and not expected_ids.issubset(done_ids):
         ctx.emit(
             "progress",
-            {"assigned": sorted(assigned_ids), "done": sorted(done_ids), "trigger": event.kind},
+            {"assigned": sorted(assigned_ids), "expected": sorted(expected_ids), "done": sorted(done_ids), "trigger": event.kind},
             status="waiting",
             stage="finalize",
             role_state="waiting",

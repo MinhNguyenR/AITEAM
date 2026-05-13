@@ -11,6 +11,7 @@ from .utils import safe_rel_path, slug
 def normalize_model_plan(task: str, model_plan: dict[str, Any], *, role_key: str) -> dict[str, Any]:
     """Keep model-authored planning while enforcing runtime safety boundaries."""
     task_slug = slug(task)
+    project_root = slug(str(model_plan.get("project_root") or task), "app")
     raw_items = model_plan.get("work_items") if isinstance(model_plan.get("work_items"), list) else []
     work_items: list[dict[str, Any]] = []
     worker_count = len(WORKER_REGISTRY)
@@ -18,7 +19,7 @@ def normalize_model_plan(task: str, model_plan: dict[str, Any], *, role_key: str
         raw = raw_items[index] if index < len(raw_items) and isinstance(raw_items[index], dict) else {}
         worker_label = list(WORKER_REGISTRY)[index]
         role_slug = slug(WORKER_REGISTRY[worker_label]["role"], f"worker-{index + 1}")
-        fallback = f".aiteamruntime/{task_slug}/{role_slug}.md"
+        fallback = f"{project_root}/{role_slug}.md"
         raw_files = raw.get("files") if isinstance(raw.get("files"), list) else []
         file_path = safe_rel_path(str(raw_files[0]) if raw_files else "", fallback)
         raw_depends_on = raw.get("depends_on") if isinstance(raw.get("depends_on"), list) else []
@@ -34,6 +35,7 @@ def normalize_model_plan(task: str, model_plan: dict[str, Any], *, role_key: str
     raw_dependencies = model_plan.get("dependencies") if isinstance(model_plan.get("dependencies"), list) else []
     return {
         "task": task,
+        "project_root": project_root,
         "work_items": work_items,
         "setup_commands": [],
         "validation_commands": [{"argv": [sys.executable, "-c", "print('aiteamruntime openrouter validation ok')"], "label": "python validation check"}],

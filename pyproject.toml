@@ -9,6 +9,7 @@ description = "AI Team Blueprint - Multi-Agent System CLI"
 authors = [
     {name = "Nguyễn Đặng Tường Minh"}
 ]
+license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
 dependencies = [
     "rich",

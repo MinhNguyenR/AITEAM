@@ -13,6 +13,7 @@ from aiteamruntime.pipeline import (
 )
 
 from .config import DEFAULT_AGENT_LANES, WORKER_REGISTRY
+from .dispatch import leader_dispatch_agent
 from .model import model_name, model_readiness, registry_model_summary
 from .roles.finalization import explainer_agent, finalizer_agent
 from .roles.intake import ambassador_agent, leader_agent
@@ -33,8 +34,14 @@ def build_trackaiteam_pipeline(*, include_explainer: bool = True) -> PipelineDef
     builder.role(
         "Tool Curator",
         tool_curator_agent,
-        any_of(after_done("Leader", "plan"), on_event("setup_done")),
+        any_of(after_done("Leader", "plan"), on_event("setup_finished")),
         lane="Tool Curator",
+    )
+    builder.role(
+        "Leader",
+        leader_dispatch_agent,
+        any_of(on_event("setup_verified"), on_event("validated"), on_event("worker_failed"), on_event("abort_task")),
+        lane="Leader",
     )
     for worker_id in WORKER_REGISTRY:
         builder.role(worker_id, worker_agent, assigned_to(worker_id), lane=worker_id)
@@ -47,7 +54,7 @@ def build_trackaiteam_pipeline(*, include_explainer: bool = True) -> PipelineDef
         ),
         lane="Secretary",
     )
-    builder.role("Runtime Finalizer", finalizer_agent, on_event("validated"), lane="runtime")
+    builder.role("Runtime Finalizer", finalizer_agent, any_of(on_event("validated"), on_event("dag_complete")), lane="runtime")
     if include_explainer:
         builder.role(
             "Explainer",

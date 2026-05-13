@@ -13,6 +13,20 @@ from ..utils import model_error, sleep
 
 
 def worker_agent(ctx: AgentContext, event: AgentEvent) -> None:
+    if event.agent_id != "Leader" or str(event.payload.get("dispatch_authority") or "") != "Leader":
+        ctx.emit(
+            "blocked",
+            {
+                "reason": "worker requires official Leader dispatch",
+                "source_agent_id": event.agent_id,
+                "work_item_id": event.work_item_id or str((event.payload or {}).get("work_item_id") or ""),
+            },
+            status="blocked",
+            stage="work",
+            work_item_id=event.work_item_id or str((event.payload or {}).get("work_item_id") or ""),
+            role_state="blocked",
+        )
+        return
     item = WorkItem.from_payload(dict(event.assignment or event.payload.get("work_item") or event.payload))
     allowed = set(item.allowed_paths)
     started = time.monotonic()

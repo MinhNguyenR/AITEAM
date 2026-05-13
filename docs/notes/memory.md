@@ -3508,6 +3508,13 @@
 
 ## Session Summaries
 
+### 5. Production Hardening & DAG Coordination (In Progress)
+- **Security Roadmap**: Approved "Production Hardening + Strangler Refactor" plan focusing on safe subprocess envs, workspace boundary enforcement, and CSRF protection for `trackaiteam`.
+- **Coordinator Logic**: Decided on a Leader-coordinated execution model using machine-readable `dag.json` artifacts to manage dependencies and parallel groups.
+- **Exception Debt**: Identified 270+ instances of general `except Exception:` blocks via AST scan; prioritized cleanup in `agents/` and `aiteamruntime/`.
+- **Model Registry**: Upgraded elite roster: Grok 4.3 (Leader), Qwen 3.6 Plus (Designer), Mimo V2 Flash (Low-cost Lead).
+- **Safe Commit Path**: Standardized file writing via `code_backup.py` with pre-commit syntax validation and hash-based conflict detection.
+
 ### 4. Industrial AI Agentic Refactoring (Completed)
 - **UI**: Detailed diffs with context windows (+green/-red) in `_update_state.py`.
 - **Architecture**: Standardized slash-commands (`/back`, `/exit`, `/accept`, etc.) via `command_parser.py`.

@@ -7,6 +7,7 @@ from aiteamruntime.core.events import AgentEvent
 from aiteamruntime.core.runtime import AgentContext
 
 from ..config import WORKER_REGISTRY
+from ..dag import dag_from_plan, validate_dag
 from ..model import (
     chat_json,
     leader_role_key,
@@ -18,7 +19,7 @@ from ..model import (
     real_model_enabled,
 )
 from ..planning import normalize_model_plan
-from ..utils import model_error, prompt
+from ..utils import model_error, prompt, write_run_artifact
 
 
 def ambassador_agent(ctx: AgentContext, event: AgentEvent) -> None:
@@ -228,6 +229,38 @@ def leader_agent(ctx: AgentContext, event: AgentEvent) -> None:
         role_state="done",
     )
     plan = normalize_model_plan(task, model_plan, role_key=role_key)
+    dag = dag_from_plan(plan)
+    dropped_deps = [
+        {"id": str(item.get("id") or ""), "dropped_depends_on": list(item.get("dropped_depends_on") or [])}
+        for item in dag.get("work_items") or []
+        if isinstance(item, dict) and item.get("dropped_depends_on")
+    ]
+    if dropped_deps:
+        ctx.emit(
+            "progress",
+            {"state": "normalized_non_id_dependencies", "items": dropped_deps},
+            status="ok",
+            stage="plan",
+            role_state="running",
+        )
+    dag_errors = validate_dag(dag)
+    if dag_errors:
+        ctx.emit("blocked", {"reason": "leader produced invalid dag.json", "errors": dag_errors}, status="blocked", stage="plan", role_state="blocked")
+        ctx.runtime.request_abort(ctx.run_id, "leader dag invalid")
+        return
+    plan["dag"] = dag
+    plan["work_items"] = dag["work_items"]
+    plan["files"] = sorted({path for item in dag["work_items"] for path in item.get("allowed_paths") or []})
+    try:
+        dag_path, dag_full_path, dag_ref = write_run_artifact(ctx, "dag.json", json.dumps(dag, ensure_ascii=False, indent=2), project_dir=str(dag.get("project_root") or ""))
+        plan["dag_path"] = dag_path
+        plan["dag_ref"] = dag_ref
+        ctx.emit("artifact_written", {"path": dag_path, "absolute_path": str(dag_full_path), "ref_id": dag_ref, "storage": "runtime_cache"}, stage="plan")
+        ctx.emit("dag_ready", {"dag": dag, "dag_path": dag_path, "dag_ref": dag_ref}, stage="plan", role_state="done")
+    except Exception as exc:
+        ctx.emit("error", {"type": type(exc).__name__, "message": str(exc), "path": "dag.json"}, status="error", stage="plan", role_state="error")
+        ctx.runtime.request_abort(ctx.run_id, "leader dag write failed")
+        return
     ctx.emit(
         "reasoning",
         {"content": str(model_plan.get("reasoning") or "Leader produced a real model plan."), **leader_meta},

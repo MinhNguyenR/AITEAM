@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from aiteamruntime.core.events import AgentEvent
 from aiteamruntime.core.runtime import AgentContext, WorkItem
 
@@ -9,12 +7,12 @@ from .config import WORKER_REGISTRY
 from .setup import command_payload
 
 
-def build_assignments(ctx: AgentContext, work_items: list[WorkItem]) -> list[dict[str, Any]]:
-    assignments: list[dict[str, Any]] = []
+def build_assignments(ctx: AgentContext, work_items: list[WorkItem]) -> list[dict]:
+    assignments: list[dict] = []
     claimed_files: dict[str, str] = {}
     worker_order = list(WORKER_REGISTRY)
     for index, item in enumerate(work_items):
-        worker = worker_order[index % len(worker_order)]
+        worker = item.assigned_worker if item.assigned_worker in WORKER_REGISTRY else worker_order[index % len(worker_order)]
         conflict = next((path for path in item.allowed_paths if path in claimed_files), "")
         if conflict:
             ctx.emit(
@@ -41,27 +39,7 @@ def build_assignments(ctx: AgentContext, work_items: list[WorkItem]) -> list[dic
     return assignments
 
 
-def emit_assignments(ctx: AgentContext, assignments: list[dict[str, Any]], *, gate_id: str = "") -> None:
-    for assignment in assignments:
-        payload = {
-            "stage": "work",
-            "work_item": assignment,
-            "assigned_worker": assignment.get("assigned_worker"),
-            "allowed_paths": assignment.get("allowed_paths") or [],
-        }
-        if gate_id:
-            payload["setup_gate_id"] = gate_id
-        ctx.emit(
-            "assigned",
-            payload,
-            stage="work",
-            work_item_id=str(assignment.get("id") or ""),
-            assignment=assignment,
-            role_state="waiting",
-        )
-
-
-def request_setup_command(ctx: AgentContext, gate_id: str, commands: list[dict[str, Any]], index: int) -> None:
+def request_setup_command(ctx: AgentContext, gate_id: str, commands: list[dict], index: int) -> None:
     if index < 0 or index >= len(commands):
         return
     payload = command_payload(commands[index], "setup")
@@ -69,7 +47,23 @@ def request_setup_command(ctx: AgentContext, gate_id: str, commands: list[dict[s
     payload["setup_index"] = index
     payload["setup_total"] = len(commands)
     payload["creates"] = list(commands[index].get("creates") or [])
+    payload["tools_path"] = str(commands[index].get("tools_path") or "")
+    payload["context_path"] = str(commands[index].get("context_path") or "")
+    cwd = str(payload.get("cwd") or ".")
+    if cwd and cwd != ".":
+        try:
+            ctx.runtime.resources.resolve_workspace_path(ctx.run_id, cwd).mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
     ctx.emit("setup_requested", payload, stage="setup", role_state="waiting")
+
+
+def _join_rel(base: str, leaf: str) -> str:
+    base = str(base or ".").replace("\\", "/").strip("/")
+    leaf = str(leaf or "").replace("\\", "/").strip("/")
+    if not base or base == ".":
+        return leaf
+    return f"{base}/{leaf}" if leaf else base
 
 
 def release_assignments_after_setup(ctx: AgentContext, event: AgentEvent) -> None:
@@ -77,8 +71,6 @@ def release_assignments_after_setup(ctx: AgentContext, event: AgentEvent) -> Non
     if not gate_id:
         return
     events = ctx.runtime.store.read_events(ctx.run_id)
-    if any((item.get("payload") or {}).get("setup_gate_id") == gate_id and item.get("kind") == "assigned" for item in events):
-        return
     gate = next(
         (
             item
@@ -93,31 +85,42 @@ def release_assignments_after_setup(ctx: AgentContext, event: AgentEvent) -> Non
         return
     payload = gate.get("payload") or {}
     commands = payload.get("setup_commands") if isinstance(payload.get("setup_commands"), list) else []
-    assignments = payload.get("assignments") if isinstance(payload.get("assignments"), list) else []
-    results = [
-        item
-        for item in events
-        if item.get("kind") == "setup_done" and (item.get("payload") or {}).get("gate_id") == gate_id
-    ]
+    results = [item for item in events if item.get("kind") == "setup_done" and (item.get("payload") or {}).get("gate_id") == gate_id]
     if any(str(item.get("status") or "") in {"error", "timeout"} for item in results):
-        ctx.emit("blocked", {"gate_id": gate_id, "reason": "setup failed; workers not released"}, status="blocked", stage="setup", role_state="blocked")
-        return
-    if len(results) < len(commands):
-        requested_indexes = {
-            int((item.get("payload") or {}).get("setup_index") or 0)
-            for item in events
-            if item.get("kind") == "setup_requested" and (item.get("payload") or {}).get("gate_id") == gate_id
-        }
-        next_index = len(results)
-        if next_index not in requested_indexes:
-            request_setup_command(ctx, gate_id, commands, next_index)
+        failed = next((item for item in reversed(results) if str(item.get("status") or "") in {"error", "timeout"}), results[-1])
         ctx.emit(
-            "progress",
-            {"gate_id": gate_id, "state": "waiting_for_setup", "done": len(results), "total": len(commands)},
-            status="waiting",
+            "blocked",
+            {"gate_id": gate_id, "reason": "setup failed; workers not released", "setup_error": failed.get("payload") or {}},
+            status="blocked",
             stage="setup",
-            role_state="waiting",
+            role_state="blocked",
         )
         return
-    ctx.emit("progress", {"gate_id": gate_id, "state": "setup_complete_releasing_workers"}, stage="setup", role_state="done")
-    emit_assignments(ctx, [dict(item) for item in assignments if isinstance(item, dict)], gate_id=gate_id)
+    if len(results) < len(commands):
+        request_setup_command(ctx, gate_id, commands, len(results))
+        ctx.emit("progress", {"gate_id": gate_id, "state": "waiting_for_setup", "done": len(results), "total": len(commands)}, status="waiting", stage="setup", role_state="waiting")
+        return
+    latest_payload = (results[-1].get("payload") if results else {}) or {}
+    latest_cwd = str(latest_payload.get("cwd") or ".")
+    missing = [
+        path
+        for path in latest_payload.get("creates") or []
+        if path and not ctx.runtime.resources.resolve_workspace_path(ctx.run_id, _join_rel(latest_cwd, str(path))).exists()
+    ]
+    if missing:
+        ctx.emit("blocked", {"gate_id": gate_id, "reason": "setup created files are missing", "missing_creates": missing}, status="blocked", stage="setup", role_state="blocked")
+        return
+    ctx.emit(
+        "setup_verified",
+        {
+            "gate_id": gate_id,
+            "creates": list(latest_payload.get("creates") or []),
+            "context_path": str(payload.get("context_path") or ""),
+            "tools_path": str(payload.get("tools_path") or ""),
+            "assignments": [dict(item) for item in payload.get("assignments") or [] if isinstance(item, dict)],
+            "dag": payload.get("dag") if isinstance(payload.get("dag"), dict) else {},
+        },
+        stage="setup",
+        role_state="done",
+    )
+    ctx.emit("progress", {"gate_id": gate_id, "state": "setup_complete_waiting_for_leader_dispatch"}, stage="setup", role_state="done")

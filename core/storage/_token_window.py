@@ -25,7 +25,7 @@ def estimate_tokens(text: str, *, model: str = "") -> int:
         return max(1, len(raw) // 4)
 
 
-def memory_budget_tokens(default: int = 600_000) -> int:
+def memory_budget_tokens(default: int = 200_000) -> int:
     raw = os.getenv("AI_TEAM_MEMORY_BUDGET_TOKENS", "").strip()
     try:
         return max(4096, int(raw)) if raw else default
